@@ -1,0 +1,3409 @@
+Directory structure:
+└── waterlogging-prediction/
+    ├── README.md
+    ├── Deployment.md
+    ├── Dockerfile
+    ├── business-prompt.md
+    ├── config.py
+    ├── log.txt
+    ├── requirements.txt
+    ├── setup.sh
+    ├── train.py
+    ├── api/
+    │   └── app.py
+    ├── data/
+    ├── models/
+    │   ├── data_processor.py
+    │   ├── feature_engineer.py
+    │   ├── risk_config.joblib
+    │   ├── risk_predictor.py
+    │   ├── waterlogging_model.joblib
+    │   └── waterlogging_predictor.py
+    └── utils/
+
+================================================
+File: README.md
+================================================
+# Waterlogging Prediction and Risk Analysis System
+
+This system predicts waterlogging depth and analyzes risk based on rainfall data and geographical features. It follows the methodology outlined in the research paper and implements a Flask API for predictions and feedback.
+
+## Project Structure
+
+```
+waterlogging_prediction/
+│
+├── data/                   # CSV data files for stations
+│   ├── 1.csv
+│   ├── 2.csv
+│   └── ...
+│
+├── models/                 # Model implementation and saved models
+│   ├── __init__.py
+│   ├── data_processor.py
+│   ├── feature_engineer.py
+│   ├── waterlogging_predictor.py
+│   ├── risk_predictor.py
+│   ├── waterlogging_model.joblib  # Saved model (after training)
+│   └── risk_config.joblib         # Saved risk config (after training)
+│
+├── utils/                  # Utility functions
+│   └── __init__.py
+│
+├── api/                    # Flask API implementation
+│   ├── __init__.py
+│   └── app.py
+│
+├── config.py               # Configuration settings
+├── train.py                # Training script
+├── requirements.txt        # Dependencies
+└── README.md               # This file
+```
+
+## Features
+
+1. **Data Processing**: 
+   - Handles missing values
+   - Interpolates time series data
+   - Creates sliding windows for time series modeling
+
+2. **Feature Engineering**:
+   - Extracts statistical features from rainfall time series
+   - Constructs domain-specific features (seasonality, rainfall interval, wetting coefficient, etc.)
+   - Incorporates weather and wind speed data when available
+
+3. **Machine Learning Models**:
+   - Random Forest (default)
+   - Gradient Boosting Decision Trees
+   - AdaBoost
+
+4. **Risk Analysis**:
+   - Calculates amplification factors
+   - Incorporates geographical features
+   - Produces risk scores and levels (low, moderate, high)
+
+5. **API Endpoints**:
+   - `/model/predict/`: Predict waterlogging depth and risk
+   - `/model/feedback`: Provide feedback for model improvement
+   - `/model/weights`: Get or update risk factor weights
+   - `/model/station-data`: Get or update station geographical data
+
+## Setup Instructions
+
+### Prerequisites
+
+- Python 3.8+
+- pip (Python package manager)
+- Virtual environment (recommended)
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/waterlogging_prediction.git
+cd waterlogging_prediction
+```
+
+2. Create and activate a virtual environment:
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install the required packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Data Preparation
+
+Place your CSV data files in the `data/` directory. Each file should correspond to one station, with the filename format `<station_id>.csv`.
+
+Each CSV should contain at least the following columns:
+- `clctTime`: Timestamp
+- `Rainfall(mm)`: Rainfall in millimeters
+- `Waterdepth(meters)`: Water depth in meters
+
+Optional columns:
+- `Weather`: Weather condition code
+- `Wind Speed`: Wind speed
+
+### Model Training
+
+To train the model using the default settings:
+
+```bash
+python train.py --data-dir data --model-type rf --window-size 6 --save-dir models
+```
+
+Options:
+- `--data-dir`: Directory containing CSV files (default: 'data')
+- `--model-type`: Type of model ('rf', 'gbdt', 'adaboost') (default: 'rf')
+- `--window-size`: Size of sliding window (default: 6)
+- `--tune-hyperparams`: Flag to tune hyperparameters
+- `--save-dir`: Directory to save models (default: 'models')
+
+### Running the API
+
+To start the Flask API:
+
+```bash
+cd api
+python app.py
+```
+
+The API will be available at `http://localhost:5000/`.
+
+## API Documentation
+
+### 1. Predict Waterlogging Depth and Risk
+
+**Endpoint**: `POST /model/predict/`
+
+**Request Body**:
+```json
+{
+    "station_code": "1",
+    "rainfall": 10.5,
+    "timestamp": "2023-05-01T12:30:00",
+    "weather": 2,  
+    "windspeed": 5.2  
+}
+```
+
+**Response**:
+```json
+{
+    "prediction": {
+        "waterlogging_depth": 0.25,
+        "risk_factor": {
+            "risk_score": 0.45,
+            "risk_level": "moderate",
+            "amplification_factor": 0.23,
+            "factors": {
+                "elevation": 0.3,
+                "impervious_cover": 0.8,
+                "drainage": 0.4,
+                "slope": 0.2,
+                "proximity_to_water": 0.5
+            }
+        }
+    },
+    "message": "Prediction successful",
+    "status": "success"
+}
+```
+
+### 2. Provide Feedback
+
+**Endpoint**: `POST /model/feedback`
+
+**Request Body**:
+```json
+{
+    "station_code": "1",
+    "rainfall": 10.5,
+    "timestamp": "2023-05-01T12:30:00",
+    "weather": 2,
+    "windspeed": 5.2,
+    "actual_waterdepth": 0.27
+}
+```
+
+**Response**:
+```json
+{
+    "message": "Feedback processed successfully",
+    "status": "success",
+    "details": {
+        "previous_prediction": 0.25,
+        "actual_value": 0.27,
+        "error": 0.02
+    }
+}
+```
+
+### 3. Get or Update Risk Weights
+
+**GET /model/weights**
+
+**Response**:
+```json
+{
+    "weights": {
+        "amplification_factor": 0.4,
+        "elevation": 0.2,
+        "impervious_cover": 0.1,
+        "drainage": 0.15,
+        "slope": 0.1,
+        "proximity_to_water": 0.05
+    },
+    "message": "Current weights retrieved successfully",
+    "status": "success"
+}
+```
+
+**POST /model/weights**
+
+**Request Body**:
+```json
+{
+    "weights": {
+        "amplification_factor": 0.5,
+        "elevation": 0.2,
+        "impervious_cover": 0.1,
+        "drainage": 0.1,
+        "slope": 0.05,
+        "proximity_to_water": 0.05
+    }
+}
+```
+
+**Response**: Same as GET response but with updated weights.
+
+### 4. Get or Update Station Data
+
+**GET /model/station-data?station_id=1**
+
+**Response**:
+```json
+{
+    "station_data": {
+        "amplification_factor": 0.23,
+        "elevation": 25.5,
+        "impervious_cover": 0.85,
+        "drainage_area": 200,
+        "drainage_volume": 10000,
+        "slope": 0.05,
+        "proximity_to_water": 300
+    },
+    "message": "Station data retrieved successfully",
+    "status": "success"
+}
+```
+
+**POST /model/station-data**
+
+**Request Body**:
+```json
+{
+    "station_id": "1",
+    "data": {
+        "elevation": 25.5,
+        "impervious_cover": 0.85,
+        "drainage_area": 200,
+        "drainage_volume": 10000,
+        "slope": 0.05,
+        "proximity_to_water": 300
+    }
+}
+```
+
+**Response**: Same as GET response but with updated station data.
+
+## Implementation Details
+
+The system follows the approach from the research paper with these key components:
+
+1. **Data Preprocessing**:
+   - Interpolation for missing timestamps
+   - Handling missing values
+   - Time series slicing
+
+2. **Feature Extraction**:
+   - Unit rainfall calculation
+   - Seasonality coefficients
+   - Rainfall interval features
+   - Statistical features (mean, max, std, kurtosis, skewness, AUC)
+
+3. **Risk Analysis**:
+   - Amplification factor (AF) = waterlogging depth / rainfall
+   - Risk formula: r = w1*AF + w2*(1-elevation_normalized) + w3*impervious_cover + w4*(1-drainage_normalized) + w5*(1-slope_normalized) + w6*proximity_norm
+   - Risk levels: low (<0.3), moderate (0.3-0.6), high (>0.6)
+
+4. **Machine Learning Pipeline**:
+   - Data processing
+   - Feature engineering
+   - Model training and prediction
+
+5. **Feedback Loop**:
+   - Continuous model improvement with new data
+   - Updating amplification factors
+
+## Requirements
+
+The following packages are required:
+
+- Flask==2.0.1
+- pandas==1.3.3
+- numpy==1.20.3
+- scikit-learn==0.24.2
+- joblib==1.0.1
+
+To install all requirements:
+
+```bash
+pip install -r requirements.txt
+```
+
+
+================================================
+File: Deployment.md
+================================================
+# Deployment Guide
+
+This guide provides instructions for deploying the Waterlogging Prediction System in various environments.
+
+## Local Deployment
+
+### Prerequisites
+- Python 3.8+
+- pip package manager
+- Git (optional)
+
+### Steps
+
+1. Clone or download the repository:
+```bash
+git clone https://github.com/yourusername/waterlogging_prediction.git
+cd waterlogging_prediction
+```
+
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Train the model:
+```bash
+python train.py --data-dir data --model-type rf
+```
+
+5. Run the Flask API:
+```bash
+cd api
+python app.py
+```
+
+The API will be available at `http://localhost:5000/`.
+
+## Docker Deployment
+
+### Prerequisites
+- Docker
+- Docker Compose (optional)
+
+### Using Dockerfile
+
+1. Build the Docker image:
+```bash
+docker build -t waterlogging-prediction:latest .
+```
+
+2. Run the container:
+```bash
+docker run -p 5000:5000 -v $(pwd)/data:/app/data -v $(pwd)/models:/app/models waterlogging-prediction:latest
+```
+
+This will map the container's port 5000 to the host's port 5000 and mount the local data and models directories to the container.
+
+### Using Docker Compose
+
+Create a `docker-compose.yml` file:
+
+```yaml
+version: '3'
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - FLASK_ENV=production
+```
+
+Run the application:
+```bash
+docker-compose up -d
+```
+
+## Production Deployment
+
+For production environments, consider the following recommendations:
+
+### Using Gunicorn
+
+Gunicorn is a production-ready WSGI server for Python web applications.
+
+1. Install Gunicorn (already included in requirements.txt):
+```bash
+pip install gunicorn
+```
+
+2. Run the application with Gunicorn:
+```bash
+gunicorn --bind 0.0.0.0:5000 api.app:app
+```
+
+### Using Nginx as a Reverse Proxy
+
+For improved performance and security, use Nginx as a reverse proxy in front of Gunicorn.
+
+1. Install Nginx:
+```bash
+sudo apt-get install nginx  # Ubuntu/Debian
+# or
+sudo yum install nginx      # CentOS/RHEL
+```
+
+2. Create an Nginx configuration file:
+```
+server {
+    listen 80;
+    server_name your_domain.com;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+3. Enable the configuration and restart Nginx:
+```bash
+sudo ln -s /etc/nginx/sites-available/your_config /etc/nginx/sites-enabled/
+sudo systemctl restart nginx
+```
+
+### Using Supervisor to Manage the Process
+
+Supervisor can keep your application running and automatically restart it if it crashes.
+
+1. Install Supervisor:
+```bash
+sudo apt-get install supervisor  # Ubuntu/Debian
+# or
+sudo yum install supervisor      # CentOS/RHEL
+```
+
+2. Create a configuration file:
+```
+[program:waterlogging-prediction]
+command=/path/to/venv/bin/gunicorn --bind 0.0.0.0:5000 api.app:app
+directory=/path/to/waterlogging_prediction
+user=your_user
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/waterlogging_prediction.err.log
+stdout_logfile=/var/log/waterlogging_prediction.out.log
+```
+
+3. Enable the configuration:
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start waterlogging-prediction
+```
+
+## Cloud Deployment
+
+### AWS Elastic Beanstalk
+
+1. Install the EB CLI:
+```bash
+pip install awsebcli
+```
+
+2. Initialize your EB project:
+```bash
+eb init -p python-3.8 waterlogging-prediction
+```
+
+3. Create an environment and deploy:
+```bash
+eb create waterlogging-prediction-env
+```
+
+4. For subsequent deployments:
+```bash
+eb deploy
+```
+
+### Google Cloud Run
+
+1. Install the Google Cloud SDK.
+
+2. Build and push the Docker image:
+```bash
+gcloud builds submit --tag gcr.io/your-project-id/waterlogging-prediction
+```
+
+3. Deploy to Cloud Run:
+```bash
+gcloud run deploy waterlogging-prediction \
+  --image gcr.io/your-project-id/waterlogging-prediction \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+### Azure App Service
+
+1. Install the Azure CLI.
+
+2. Create an App Service Plan:
+```bash
+az appservice plan create --name waterlogging-prediction-plan --resource-group your-resource-group --sku B1
+```
+
+3. Create a Web App:
+```bash
+az webapp create --name waterlogging-prediction --resource-group your-resource-group --plan waterlogging-prediction-plan --runtime "PYTHON|3.8"
+```
+
+4. Deploy the application:
+```bash
+az webapp up --name waterlogging-prediction --resource-group your-resource-group
+```
+
+## Monitoring and Maintenance
+
+### Logging
+
+The application uses Python's built-in logging module. Logs are written to:
+- Console output
+- `app.log` file
+- `training.log` file (for model training)
+
+### Backup
+
+Regularly backup your model files:
+- `models/waterlogging_model.joblib`
+- `models/risk_config.joblib`
+
+### Updating the Model
+
+To update the model with new data:
+1. Add new CSV files to the `data/` directory
+2. Run the training script:
+```bash
+python train.py --data-dir data --model-type rf
+```
+
+Alternatively, use the `/model/feedback` API endpoint to continuously improve the model with new observations.
+
+### Security Considerations
+
+1. Use HTTPS in production with a valid SSL certificate
+2. Implement proper authentication for the API
+3. Consider rate limiting to prevent abuse
+4. Regularly update dependencies to address security vulnerabilities
+
+
+================================================
+File: Dockerfile
+================================================
+# Use Python 3.8 as base image
+FROM python:3.9-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create data directory if it doesn't exist
+RUN mkdir -p data models
+
+# Expose port
+EXPOSE 5000
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV FLASK_APP=api/app.py
+ENV FLASK_ENV=production
+
+# Start the application
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "api.app:app"]
+
+
+================================================
+File: business-prompt.md
+================================================
+
+
+
+================================================
+File: config.py
+================================================
+"""
+Configuration settings for the waterlogging prediction system
+"""
+
+import os
+
+# Base directory of the project
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Data directory
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+
+# Models directory
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+
+# Model files
+WATERLOGGING_MODEL_PATH = os.path.join(MODELS_DIR, 'waterlogging_model.joblib')
+RISK_CONFIG_PATH = os.path.join(MODELS_DIR, 'risk_config.joblib')
+
+# Default model parameters
+DEFAULT_MODEL_TYPE = 'rf'  # Random Forest
+DEFAULT_WINDOW_SIZE = 6
+DEFAULT_SEASONALITY = {
+    'rainy_months': [6, 7, 8, 9],  # June to September
+    'transition_months': [3, 4, 5, 10],  # March to May, October
+    'dry_months': [1, 2, 11, 12],  # November to February
+    'coefficients': {
+        'rainy': 10,      # Strong coefficient for rainy season
+        'transition': 6,  # Medium coefficient for transition season
+        'dry': 2          # Low coefficient for dry season
+    }
+}
+
+# Default risk predictor weights
+DEFAULT_RISK_WEIGHTS = {
+    'amplification_factor': 0.4,
+    'elevation': 0.2,
+    'impervious_cover': 0.1,
+    'drainage': 0.15,
+    'slope': 0.1,
+    'proximity_to_water': 0.05
+}
+
+# Risk levels
+RISK_LEVELS = {
+    'low': {'min': 0, 'max': 0.3},
+    'moderate': {'min': 0.3, 'max': 0.6},
+    'high': {'min': 0.6, 'max': 1.0}
+}
+
+# Flask API settings
+API_HOST = '0.0.0.0'
+API_PORT = 5000
+API_DEBUG = False  # Set to False in production
+
+# Logging configuration
+LOG_LEVEL = 'INFO'
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_FILE = os.path.join(BASE_DIR, 'app.log')
+
+# Dummy geo-spatial data for stations
+# This would be replaced with real data in a production environment
+DUMMY_STATION_DATA = {
+    '1': {
+        'elevation': 33,
+        'impervious_cover': 0.9,
+        'drainage_area': 145.46,
+        'drainage_volume': 7210.38,
+        'slope': 0.04,
+        'proximity_to_water': 300
+    },
+    '2': {
+        'elevation': 18,
+        'impervious_cover': 0.85,
+        'drainage_area': 236.93,
+        'drainage_volume': 9448.44,
+        'slope': 0.06,
+        'proximity_to_water': 250
+    },
+    '3': {
+        'elevation': 5,
+        'impervious_cover': 0.88,
+        'drainage_area': 198.45,
+        'drainage_volume': 14863.07,
+        'slope': 0.03,
+        'proximity_to_water': 180
+    },
+    '4': {
+        'elevation': 11,
+        'impervious_cover': 0.92,
+        'drainage_area': 335.14,
+        'drainage_volume': 11961.56,
+        'slope': 0.05,
+        'proximity_to_water': 220
+    },
+    '5': {
+        'elevation': 25,
+        'impervious_cover': 0.8,
+        'drainage_area': 220.5,
+        'drainage_volume': 9800.75,
+        'slope': 0.045,
+        'proximity_to_water': 280
+    },
+    '6': {
+        'elevation': 15,
+        'impervious_cover': 0.87,
+        'drainage_area': 195.8,
+        'drainage_volume': 8500.3,
+        'slope': 0.035,
+        'proximity_to_water': 320
+    },
+    '7': {
+        'elevation': 28,
+        'impervious_cover': 0.83,
+        'drainage_area': 275.6,
+        'drainage_volume': 10450.2,
+        'slope': 0.055,
+        'proximity_to_water': 190
+    }
+}
+
+
+================================================
+File: log.txt
+================================================
+
+
+
+================================================
+File: requirements.txt
+================================================
+Flask>=2.0.0
+pandas>=2.0.0
+numpy>=1.20.0
+scikit-learn>=1.0.0
+joblib>=1.0.0
+matplotlib>=3.0.0
+seaborn>=0.11.0
+gunicorn>=20.0.0
+pytest>=6.0.0
+python-dateutil>=2.8.0
+
+
+================================================
+File: setup.sh
+================================================
+#!/bin/bash
+
+# Waterlogging Prediction System Setup Script
+# This script sets up the environment, trains the model, and starts the API
+
+# Exit on any error
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# Print colored message
+function print_message() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+function print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+function print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if Python is installed
+if ! command -v python3 &> /dev/null; then
+    print_error "Python 3 is not installed. Please install Python 3.8 or higher."
+    exit 1
+fi
+
+# Check Python version
+PYTHON_VERSION=$(python3 --version | cut -d " " -f 2)
+PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d "." -f 1)
+PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d "." -f 2)
+
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 8 ]); then
+    print_error "Python version $PYTHON_VERSION is not supported. Please install Python 3.8 or higher."
+    exit 1
+fi
+
+print_message "Using Python $PYTHON_VERSION"
+
+# Create virtual environment
+if [ ! -d "venv" ]; then
+    print_message "Creating virtual environment..."
+    python3 -m venv venv
+else
+    print_warning "Virtual environment already exists. Skipping creation."
+fi
+
+# Activate virtual environment
+print_message "Activating virtual environment..."
+source venv/bin/activate
+
+# Install dependencies
+print_message "Installing dependencies..."
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Create directories if they don't exist
+print_message "Setting up directories..."
+mkdir -p data
+mkdir -p models
+
+# Check if any CSV files exist in the data directory
+CSV_COUNT=$(find data -name "*.csv" | wc -l)
+if [ "$CSV_COUNT" -eq 0 ]; then
+    print_warning "No CSV files found in the data directory. Please add your data files to the 'data' directory."
+    exit 1
+fi
+
+# Train the model
+print_message "Training the model..."
+python train.py --data-dir data --model-type rf
+
+# Check if model files were created
+if [ ! -f "models/waterlogging_model.joblib" ] || [ ! -f "models/risk_config.joblib" ]; then
+    print_error "Model training failed. Model files not found."
+    exit 1
+fi
+
+print_message "Model trained successfully!"
+
+# Start the API (in the background)
+print_message "Starting the API server..."
+cd api
+python app.py &
+API_PID=$!
+
+# Wait for the API to start
+sleep 3
+
+# Check if the API is running
+if curl -s http://localhost:5000/model/weights > /dev/null; then
+    print_message "API server is running at http://localhost:5000/"
+    print_message "Press Ctrl+C to stop the server."
+    
+    # Wait for user to press Ctrl+C
+    trap "kill $API_PID; print_message 'API server stopped.'; exit 0" INT
+    wait $API_PID
+else
+    print_error "API server failed to start."
+    kill $API_PID 2>/dev/null || true
+    exit 1
+fi
+
+
+================================================
+File: train.py
+================================================
+import os
+import sys
+import pandas as pd
+import numpy as np
+import logging
+import glob
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor
+import argparse
+import joblib
+
+# Add the parent directory to sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from models.waterlogging_predictor import WaterloggingPredictor
+from models.risk_predictor import RiskPredictor
+from models.data_processor import DataProcessor  # Import DataProcessor
+from models.feature_engineer import FeatureEngineer  # Import FeatureEngineer
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('training.log')
+    ]
+)
+logger = logging.getLogger(__name__)
+
+def load_and_prepare_data(data_dir):
+    """
+    Load and prepare data for training
+    
+    Args:
+        data_dir (str): Directory with CSV files
+        
+    Returns:
+        tuple: train_files, test_files, station_data
+    """
+    logger.info(f"Loading data from {data_dir}")
+    
+    # Find all CSV files
+    csv_files = glob.glob(os.path.join(data_dir, '*.csv'))
+    
+    if not csv_files:
+        logger.error(f"No CSV files found in {data_dir}")
+        sys.exit(1)
+        
+    logger.info(f"Found {len(csv_files)} CSV files")
+    
+    # Store data for each station
+    station_data = {}
+    
+    # Store all files for training and testing
+    train_files = []
+    test_files = []
+    
+    for file_path in csv_files:
+        # Get station ID from filename
+        station_id = os.path.basename(file_path).split('.')[0]
+        
+        # Instead of trying to split the file path, just use the same file for both
+        # training and testing - we'll split the actual data later in the pipeline
+        train_files.append(file_path)
+        test_files.append(file_path)
+        
+        # Store in station_data
+        station_data[station_id] = {
+            'train_file': file_path,
+            'test_file': file_path
+        }
+    
+    return train_files, test_files, station_data
+
+def train_models(train_files, test_files, station_data, model_type='rf', 
+                 tune_hyperparams=False, window_size=6, save_dir='models'):
+    """
+    Train and evaluate waterlogging prediction model
+    
+    Args:
+        train_files (list): List of training files
+        test_files (list): List of test files
+        station_data (dict): Data for each station
+        model_type (str): Type of model to use ('rf', 'gbdt', 'adaboost')
+        tune_hyperparams (bool): Whether to tune hyperparameters
+        window_size (int): Size of sliding window
+        save_dir (str): Directory to save models
+    """
+    logger.info(f"Training {model_type} model with window size {window_size}")
+    
+    # Load all data first
+    all_dfs = []
+    for file_path in train_files:
+        try:
+            # Load CSV file
+            df = pd.read_csv(file_path)
+            
+            # Extract station code from file name
+            station_code = os.path.basename(file_path).split('.')[0]
+            df['station_code'] = station_code
+            
+            # Rename columns for consistency
+            column_mapping = {
+                'clctTime': 'timestamp',
+                'Rainfall(mm)': 'rainfall',
+                'Waterdepth(meters)': 'waterdepth',
+                'Weather': 'weather',
+                'Wind Speed': 'windspeed'
+            }
+            
+            df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
+            
+            # Ensure timestamp is properly converted to datetime
+            if 'timestamp' in df.columns:
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+            elif 'clctTime' in df.columns:
+                df['timestamp'] = pd.to_datetime(df['clctTime'])
+            else:
+                logger.warning(f"No timestamp column found in {file_path}")
+                # Create a dummy timestamp if none exists
+                df['timestamp'] = pd.date_range(start='2023-01-01', periods=len(df), freq='5min')
+                
+            # Force numeric conversion for key columns
+            if 'rainfall' in df.columns:
+                df['rainfall'] = pd.to_numeric(df['rainfall'], errors='coerce').fillna(0)
+            if 'waterdepth' in df.columns:
+                df['waterdepth'] = pd.to_numeric(df['waterdepth'], errors='coerce').fillna(0)
+            if 'weather' in df.columns:
+                df['weather'] = pd.to_numeric(df['weather'], errors='coerce').fillna(0)
+            if 'windspeed' in df.columns:
+                df['windspeed'] = pd.to_numeric(df['windspeed'], errors='coerce').fillna(0)
+            
+            # Check for duplicate timestamps
+            has_duplicates = df.duplicated('timestamp').any()
+            if has_duplicates:
+                logger.warning(f"File {file_path} has duplicate timestamps. Handling duplicates...")
+                # Group by timestamp and aggregate
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                numeric_agg = {col: 'mean' for col in numeric_cols if col != 'station_code'}
+                categorical_cols = [col for col in df.columns if col not in numeric_cols and col != 'timestamp']
+                categorical_agg = {col: lambda x: x.mode()[0] if not x.mode().empty else x.iloc[0] for col in categorical_cols}
+                agg_dict = {**numeric_agg, **categorical_agg}
+                df = df.groupby('timestamp').agg(agg_dict).reset_index()
+                df['station_code'] = station_code
+            
+            all_dfs.append(df)
+            logger.info(f"Successfully loaded {file_path} with {len(df)} rows")
+            
+        except Exception as e:
+            logger.error(f"Error loading {file_path}: {str(e)}")
+    
+    # Combine all dataframes
+    if not all_dfs:
+        logger.error("No valid data found in the provided files")
+        sys.exit(1)
+    
+    combined_df = pd.concat(all_dfs, ignore_index=True)
+    logger.info(f"Combined data has {len(combined_df)} rows and columns: {combined_df.columns.tolist()}")
+    
+    # Log data stats
+    if 'rainfall' in combined_df.columns:
+        logger.info(f"Rainfall stats: min={combined_df['rainfall'].min()}, max={combined_df['rainfall'].max()}, mean={combined_df['rainfall'].mean()}")
+    if 'waterdepth' in combined_df.columns:
+        logger.info(f"Waterdepth stats: min={combined_df['waterdepth'].min()}, max={combined_df['waterdepth'].max()}, mean={combined_df['waterdepth'].mean()}")
+    
+    # Split data for each station for evaluation
+    station_dfs = {}
+    for station_id, group_df in combined_df.groupby('station_code'):
+        # Use a proper train-test split on the actual data
+        train_df, test_df = train_test_split(group_df, test_size=0.2, random_state=42)
+        station_dfs[station_id] = {
+            'train': train_df,
+            'test': test_df
+        }
+        logger.info(f"Station {station_id}: {len(train_df)} training samples, {len(test_df)} test samples")
+    
+    # Initialize the components without building a pipeline
+    data_processor = DataProcessor(window_size=window_size)
+    feature_engineer = FeatureEngineer()
+    
+    # Initialize the model
+    if model_type == 'rf':
+        model = RandomForestRegressor(n_estimators=100, random_state=42)
+    elif model_type == 'gbdt':
+        model = GradientBoostingRegressor(n_estimators=100, random_state=42)
+    elif model_type == 'adaboost':
+        model = AdaBoostRegressor(n_estimators=50, random_state=42)
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")
+    
+    # Process data
+    logger.info("Processing data...")
+    X_processed, y = data_processor.transform(combined_df)
+    logger.info(f"Processed data shape: {X_processed.shape}, Target shape: {y.shape}")
+    
+    # Extract features
+    logger.info("Extracting features...")
+    X_features, y_unchanged = feature_engineer.transform((X_processed, y))
+    logger.info(f"Feature extraction complete: {X_features.shape}, Target shape: {y_unchanged.shape}")
+    
+    # Train the model
+    logger.info("Training model...")
+    model.fit(X_features, y_unchanged)
+    logger.info("Model training completed")
+    
+    # Initialize the waterlogging predictor with the trained components
+    waterlogging_predictor = WaterloggingPredictor(
+        model_type=model_type,
+        window_size=window_size
+    )
+    
+    # Replace the pipeline components with our trained versions
+    waterlogging_predictor.data_processor = data_processor
+    waterlogging_predictor.feature_engineer = feature_engineer
+    waterlogging_predictor.model = model
+    
+    # Initialize risk predictor
+    risk_predictor = RiskPredictor()
+    
+    # Evaluate on each station
+    logger.info("Evaluating model on each station...")
+    station_metrics = {}
+    
+    for station_id, dfs in station_dfs.items():
+        logger.info(f"Evaluating on station {station_id}...")
+        
+        # Process test data
+        X_test_processed, y_test = data_processor.transform(dfs['test'])
+        X_test_features, _ = feature_engineer.transform((X_test_processed, y_test))
+        
+        # Make predictions
+        y_pred = model.predict(X_test_features)
+        
+        # Calculate metrics
+        mse = mean_squared_error(y_test, y_pred)
+        rmse = np.sqrt(mse)
+        r2 = r2_score(y_test, y_pred)
+        
+        metrics = {
+            'mse': mse,
+            'rmse': rmse,
+            'r2': r2
+        }
+        
+        station_metrics[station_id] = metrics
+        logger.info(f"Station {station_id} metrics: MSE = {metrics['mse']:.6f}, R² = {metrics['r2']:.6f}")
+        
+        # Calculate the amplification factor for this station
+        test_df = dfs['test']
+            
+        # Calculate average amplification factor for this station
+        if 'rainfall' in test_df.columns and 'waterdepth' in test_df.columns:
+            # Filter out zero rainfall to avoid division by zero
+            df_filtered = test_df[(test_df['rainfall'] > 0) & (test_df['waterdepth'] > 0)]
+            
+            if not df_filtered.empty:
+                # Convert rainfall from mm to m
+                af_values = df_filtered['waterdepth'] / (df_filtered['rainfall'] / 1000.0)
+                
+                # Calculate median to avoid influence of outliers
+                median_af = np.median(af_values)
+                
+                # Update risk predictor
+                if station_id not in risk_predictor.station_data:
+                    risk_predictor.station_data[station_id] = {}
+                    
+                risk_predictor.station_data[station_id]['amplification_factor'] = median_af
+                logger.info(f"Station {station_id} amplification factor: {median_af:.4f}")
+    
+    # Get feature importance
+    if hasattr(model, 'feature_importances_'):
+        feature_importance = dict(zip(
+            feature_engineer.feature_names + ['additional_' + str(i) for i in range(X_features.shape[1] - len(feature_engineer.feature_names))],
+            model.feature_importances_
+        ))
+        logger.info("Feature importance:")
+        for feature, importance in sorted(feature_importance.items(), key=lambda x: x[1], reverse=True):
+            logger.info(f"  {feature}: {importance:.4f}")
+    
+    # Create directories if they don't exist
+    os.makedirs(save_dir, exist_ok=True)
+    
+    # Save the trained components
+    logger.info(f"Saving models to {save_dir}")
+    waterlogging_model_path = os.path.join(save_dir, 'waterlogging_model.joblib')
+    risk_config_path = os.path.join(save_dir, 'risk_config.joblib')
+    
+    # Save individual components
+    joblib.dump({
+        'data_processor': data_processor,
+        'feature_engineer': feature_engineer,
+        'model': model,
+        'model_type': model_type,
+        'window_size': window_size
+    }, waterlogging_model_path)
+    risk_predictor.save_config(risk_config_path)
+    logger.info("Models saved successfully")
+    
+    # CV results (dummy for this approach, since we're not doing proper CV)
+    cv_results = {
+        'avg_mse': np.mean([metrics['mse'] for metrics in station_metrics.values()]),
+        'avg_r2': np.mean([metrics['r2'] for metrics in station_metrics.values()])
+    }
+    
+    logger.info("Training and evaluation completed")
+    
+    return {
+        'waterlogging_predictor': waterlogging_predictor,
+        'risk_predictor': risk_predictor,
+        'station_metrics': station_metrics,
+        'cv_results': cv_results
+    }
+
+def main():
+    """Main function to train models"""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Train waterlogging prediction model')
+    parser.add_argument('--data-dir', type=str, default='data',
+                        help='Directory containing CSV files (default: data)')
+    parser.add_argument('--model-type', type=str, default='rf', choices=['rf', 'gbdt', 'adaboost'],
+                        help='Type of model to use (default: rf)')
+    parser.add_argument('--window-size', type=int, default=6,
+                        help='Size of sliding window (default: 6)')
+    parser.add_argument('--tune-hyperparams', action='store_true',
+                        help='Tune hyperparameters')
+    parser.add_argument('--save-dir', type=str, default='models',
+                        help='Directory to save models (default: models)')
+    
+    args = parser.parse_args()
+    
+    # Load and prepare data
+    try:
+        train_files, test_files, station_data = load_and_prepare_data(args.data_dir)
+        
+        # Train models
+        results = train_models(
+            train_files=train_files,
+            test_files=test_files,
+            station_data=station_data,
+            model_type=args.model_type,
+            tune_hyperparams=args.tune_hyperparams,
+            window_size=args.window_size,
+            save_dir=args.save_dir
+        )
+        
+        # Print summary
+        logger.info("\nTraining Summary:")
+        logger.info("==================")
+        
+        # Overall metrics
+        cv_mse = results['cv_results']['avg_mse']
+        cv_r2 = results['cv_results']['avg_r2']
+        logger.info(f"Cross-validation: MSE = {cv_mse:.6f}, R² = {cv_r2:.6f}")
+        
+        # Station metrics
+        logger.info("\nStation Metrics:")
+        for station_id, metrics in results['station_metrics'].items():
+            logger.info(f"  Station {station_id}: MSE = {metrics['mse']:.6f}, R² = {metrics['r2']:.6f}")
+        
+        logger.info("\nModels saved:")
+        logger.info(f"  Waterlogging model: {os.path.join(args.save_dir, 'waterlogging_model.joblib')}")
+        logger.info(f"  Risk config: {os.path.join(args.save_dir, 'risk_config.joblib')}")
+        
+    except Exception as e:
+        logger.error(f"Error during training: {str(e)}", exc_info=True)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+
+
+================================================
+File: api/app.py
+================================================
+from flask import Flask, request, jsonify
+import pandas as pd
+import numpy as np
+import logging
+import joblib
+import os
+import sys
+
+# Add the parent directory to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from models.waterlogging_predictor import WaterloggingPredictor
+from models.risk_predictor import RiskPredictor
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('api.log')
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Initialize Flask app
+app = Flask(__name__)
+
+# Load models
+MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models')
+WATERLOGGING_MODEL_PATH = os.path.join(MODEL_DIR, 'waterlogging_model.joblib')
+RISK_CONFIG_PATH = os.path.join(MODEL_DIR, 'risk_config.joblib')
+
+# Global variables for models
+waterlogging_predictor = None
+risk_predictor = None
+
+def load_models():
+    """Load the trained models"""
+    global waterlogging_predictor, risk_predictor
+    
+    # Load waterlogging predictor
+    if os.path.exists(WATERLOGGING_MODEL_PATH):
+        logger.info(f"Loading waterlogging model from {WATERLOGGING_MODEL_PATH}")
+        waterlogging_predictor = WaterloggingPredictor(model_path=WATERLOGGING_MODEL_PATH)
+    else:
+        logger.warning(f"Waterlogging model not found at {WATERLOGGING_MODEL_PATH}. Initializing with default settings.")
+        waterlogging_predictor = WaterloggingPredictor(model_type='rf')
+    
+    # Load risk predictor
+    if os.path.exists(RISK_CONFIG_PATH):
+        logger.info(f"Loading risk predictor config from {RISK_CONFIG_PATH}")
+        risk_predictor = RiskPredictor(config_path=RISK_CONFIG_PATH)
+    else:
+        logger.warning(f"Risk predictor config not found at {RISK_CONFIG_PATH}. Initializing with default settings.")
+        risk_predictor = RiskPredictor()
+
+@app.before_first_request
+def before_first_request():
+    """Initialize before first request"""
+    load_models()
+
+@app.route('/model/predict/', methods=['POST'])
+def predict():
+    """
+    Predict waterlogging depth and risk factor
+    
+    Request Body:
+    {
+        "station_code": "1",
+        "rainfall": 10.5,
+        "timestamp": "2023-05-01T12:30:00",
+        "weather": 2,  # Optional
+        "windspeed": 5.2  # Optional
+    }
+    
+    Response:
+    {
+        "prediction": {
+            "waterlogging_depth": 0.25,
+            "risk_factor": {
+                "risk_score": 0.45,
+                "risk_level": "moderate",
+                "amplification_factor": 0.23,
+                "factors": {...}
+            }
+        },
+        "message": "Prediction successful",
+        "status": "success"
+    }
+    """
+    try:
+        # Initialize models if not already initialized
+        if waterlogging_predictor is None or risk_predictor is None:
+            load_models()
+        
+        # Get JSON data from request
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['station_code', 'rainfall', 'timestamp']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'message': f"Missing required field: {field}",
+                    'status': 'error'
+                }), 400
+        
+        # Create a DataFrame for prediction
+        df = pd.DataFrame({
+            'station_code': [data['station_code']],
+            'rainfall': [float(data['rainfall'])],
+            'timestamp': [pd.to_datetime(data['timestamp'])]
+        })
+        
+        # Add optional fields if present
+        if 'weather' in data:
+            df['weather'] = data['weather']
+        if 'windspeed' in data:
+            df['windspeed'] = data['windspeed']
+        
+        # Predict waterlogging depth
+        waterlogging_depth = waterlogging_predictor.predict(df)[0]
+        
+        # Predict risk factor
+        risk_factor = risk_predictor.predict_risk(
+            station_id=data['station_code'],
+            rainfall=float(data['rainfall']),
+            waterdepth=float(waterlogging_depth)
+        )
+        
+        # Return response
+        return jsonify({
+            'prediction': {
+                'waterlogging_depth': float(waterlogging_depth),
+                'risk_factor': risk_factor
+            },
+            'message': "Prediction successful",
+            'status': 'success'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in prediction: {str(e)}", exc_info=True)
+        return jsonify({
+            'message': f"Error in prediction: {str(e)}",
+            'status': 'error'
+        }), 500
+
+@app.route('/model/feedback', methods=['POST'])
+def feedback():
+    """
+    Provide feedback to improve future predictions
+    
+    Request Body:
+    {
+        "station_code": "1",
+        "rainfall": 10.5,
+        "timestamp": "2023-05-01T12:30:00",
+        "weather": 2,  # Optional
+        "windspeed": 5.2,  # Optional
+        "actual_waterdepth": 0.27
+    }
+    
+    Response:
+    {
+        "message": "Feedback processed successfully",
+        "status": "success",
+        "details": {
+            "previous_prediction": 0.25,
+            "actual_value": 0.27,
+            "error": 0.02
+        }
+    }
+    """
+    try:
+        # Initialize models if not already initialized
+        if waterlogging_predictor is None or risk_predictor is None:
+            load_models()
+        
+        # Get JSON data from request
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['station_code', 'rainfall', 'timestamp', 'actual_waterdepth']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'message': f"Missing required field: {field}",
+                    'status': 'error'
+                }), 400
+        
+        # Create a DataFrame for prediction
+        df = pd.DataFrame({
+            'station_code': [data['station_code']],
+            'rainfall': [float(data['rainfall'])],
+            'timestamp': [pd.to_datetime(data['timestamp'])]
+        })
+        
+        # Add optional fields if present
+        if 'weather' in data:
+            df['weather'] = data['weather']
+        if 'windspeed' in data:
+            df['windspeed'] = data['windspeed']
+        
+        # Predict waterlogging depth (before update)
+        previous_prediction = waterlogging_predictor.predict(df)[0]
+        
+        # Add actual waterdepth to the dataframe
+        df['waterdepth'] = float(data['actual_waterdepth'])
+        
+        # Update the waterlogging predictor with new data
+        waterlogging_predictor.update_model(df)
+        
+        # Update the risk predictor's amplification factor
+        risk_predictor.calculate_amplification_factor(
+            station_id=data['station_code'],
+            rainfall=float(data['rainfall']),
+            waterdepth=float(data['actual_waterdepth'])
+        )
+        
+        # Save updated models
+        waterlogging_predictor.save_model(WATERLOGGING_MODEL_PATH)
+        risk_predictor.save_config(RISK_CONFIG_PATH)
+        
+        # Calculate prediction error
+        error = abs(previous_prediction - float(data['actual_waterdepth']))
+        
+        # Return response
+        return jsonify({
+            'message': "Feedback processed successfully",
+            'status': 'success',
+            'details': {
+                'previous_prediction': float(previous_prediction),
+                'actual_value': float(data['actual_waterdepth']),
+                'error': float(error)
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error processing feedback: {str(e)}", exc_info=True)
+        return jsonify({
+            'message': f"Error processing feedback: {str(e)}",
+            'status': 'error'
+        }), 500
+
+@app.route('/model/weights', methods=['GET', 'POST'])
+def weights():
+    """
+    Get or update risk factor weights
+    
+    GET:
+    Returns current weights
+    
+    POST:
+    Request Body:
+    {
+        "weights": {
+            "amplification_factor": 0.5,
+            "elevation": 0.2,
+            "impervious_cover": 0.1,
+            "drainage": 0.1,
+            "slope": 0.05,
+            "proximity_to_water": 0.05
+        }
+    }
+    
+    Response:
+    {
+        "message": "Weights updated successfully",
+        "status": "success",
+        "weights": {
+            "amplification_factor": 0.5,
+            "elevation": 0.2,
+            "impervious_cover": 0.1,
+            "drainage": 0.1,
+            "slope": 0.05,
+            "proximity_to_water": 0.05
+        }
+    }
+    """
+    try:
+        # Initialize models if not already initialized
+        if risk_predictor is None:
+            load_models()
+        
+        if request.method == 'GET':
+            # Return current weights
+            return jsonify({
+                'weights': risk_predictor.get_weights(),
+                'message': "Current weights retrieved successfully",
+                'status': 'success'
+            }), 200
+        
+        elif request.method == 'POST':
+            # Get new weights from request
+            data = request.get_json()
+            
+            if 'weights' not in data:
+                return jsonify({
+                    'message': "Missing required field: weights",
+                    'status': 'error'
+                }), 400
+            
+            # Update weights
+            risk_predictor.update_weights(data['weights'])
+            
+            # Save updated config
+            risk_predictor.save_config(RISK_CONFIG_PATH)
+            
+            # Return updated weights
+            return jsonify({
+                'weights': risk_predictor.get_weights(),
+                'message': "Weights updated successfully",
+                'status': 'success'
+            }), 200
+    
+    except Exception as e:
+        logger.error(f"Error processing weights: {str(e)}", exc_info=True)
+        return jsonify({
+            'message': f"Error processing weights: {str(e)}",
+            'status': 'error'
+        }), 500
+
+@app.route('/model/station-data', methods=['GET', 'POST'])
+def station_data():
+    """
+    Get or update station data
+    
+    GET:
+    Query Parameters:
+    - station_id (optional): Get data for a specific station
+    
+    POST:
+    Request Body:
+    {
+        "station_id": "1",
+        "data": {
+            "elevation": 25.5,
+            "impervious_cover": 0.85,
+            "drainage_area": 200,
+            "drainage_volume": 10000,
+            "slope": 0.05,
+            "proximity_to_water": 300
+        }
+    }
+    
+    Response:
+    {
+        "message": "Station data updated successfully",
+        "status": "success",
+        "station_data": {...}
+    }
+    """
+    try:
+        # Initialize models if not already initialized
+        if risk_predictor is None:
+            load_models()
+        
+        if request.method == 'GET':
+            # Get station_id from query parameters
+            station_id = request.args.get('station_id')
+            
+            # Return station data
+            return jsonify({
+                'station_data': risk_predictor.get_station_data(station_id),
+                'message': "Station data retrieved successfully",
+                'status': 'success'
+            }), 200
+        
+        elif request.method == 'POST':
+            # Get data from request
+            data = request.get_json()
+            
+            if 'station_id' not in data or 'data' not in data:
+                return jsonify({
+                    'message': "Missing required fields: station_id and/or data",
+                    'status': 'error'
+                }), 400
+            
+            # Update station data
+            risk_predictor.update_station_data(data['station_id'], data['data'])
+            
+            # Save updated config
+            risk_predictor.save_config(RISK_CONFIG_PATH)
+            
+            # Return updated station data
+            return jsonify({
+                'station_data': risk_predictor.get_station_data(data['station_id']),
+                'message': "Station data updated successfully",
+                'status': 'success'
+            }), 200
+    
+    except Exception as e:
+        logger.error(f"Error processing station data: {str(e)}", exc_info=True)
+        return jsonify({
+            'message': f"Error processing station data: {str(e)}",
+            'status': 'error'
+        }), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+
+
+
+================================================
+File: models/data_processor.py
+================================================
+import pandas as pd
+import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin
+from typing import List, Dict, Union, Tuple
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class DataProcessor(BaseEstimator, TransformerMixin):
+    """
+    Data processing class for waterlogging prediction
+    
+    This class handles:
+    1. Loading and cleaning data
+    2. Interpolating missing values
+    3. Creating time slices for time series modeling
+    """
+    
+    def __init__(self, window_size: int = 3, step_size: int = 1):
+        """
+        Initialize the DataProcessor
+        
+        Args:
+            window_size (int): Size of the sliding window for time series
+            step_size (int): Step size for sliding the window
+        """
+        self.window_size = window_size
+        self.step_size = step_size
+        
+    def load_data(self, file_path: str) -> pd.DataFrame:
+        """
+        Load data from CSV file with improved error handling
+        
+        Args:
+            file_path (str): Path to the CSV file
+                
+        Returns:
+            pd.DataFrame: Loaded and cleaned data
+        """
+        try:
+            # Load data
+            df = pd.read_csv(file_path)
+            
+            # Extract station code from file name
+            station_code = file_path.split('/')[-1].split('.')[0]
+            df['station_code'] = station_code
+            
+            # Convert timestamp to datetime
+            if 'clctTime' in df.columns:
+                df['clctTime'] = pd.to_datetime(df['clctTime'], errors='coerce')
+                    
+            # Sort by timestamp
+            if 'clctTime' in df.columns:
+                df = df.sort_values(by='clctTime')
+                
+            # Rename columns for consistency
+            column_mapping = {
+                'clctTime': 'timestamp',
+                'Rainfall(mm)': 'rainfall',
+                'Waterdepth(meters)': 'waterdepth',
+                'Weather': 'weather',
+                'Wind Speed': 'windspeed',
+                'clctCode': 'station_code'
+            }
+            
+            df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
+            
+            # Force numeric conversion for key columns
+            if 'rainfall' in df.columns:
+                df['rainfall'] = pd.to_numeric(df['rainfall'], errors='coerce')
+                
+            if 'waterdepth' in df.columns:
+                df['waterdepth'] = pd.to_numeric(df['waterdepth'], errors='coerce')
+                
+            if 'windspeed' in df.columns:
+                df['windspeed'] = pd.to_numeric(df['windspeed'], errors='coerce')
+                
+            if 'weather' in df.columns:
+                df['weather'] = pd.to_numeric(df['weather'], errors='coerce')
+            
+            # Drop rows with invalid timestamps
+            if 'timestamp' in df.columns:
+                df = df.dropna(subset=['timestamp'])
+            
+            logger.info(f"Successfully loaded data from {file_path}")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error loading data from {file_path}: {str(e)}")
+            raise
+
+    def create_sliding_windows(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Create sliding windows from time series data
+        
+        Args:
+            df (pd.DataFrame): Input dataframe
+            
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: X (input features) and y (target) arrays
+        """
+        # Extract input and target columns
+        input_cols = ['rainfall']
+        if 'weather' in df.columns:
+            input_cols.append('weather')
+        if 'windspeed' in df.columns:
+            input_cols.append('windspeed')
+            
+        # Also include station_code as a feature
+        if 'station_code' in df.columns:
+            input_cols.append('station_code')
+            
+        # Ensure all values are numeric
+        X_data_list = []
+        for col in input_cols:
+            if col == 'station_code':
+                # Convert station_code to numeric representation
+                X_data_list.append(df[col].astype(str).apply(lambda x: float(x) if x.isdigit() else float(hash(x) % 1000) / 1000).values.reshape(-1, 1))
+            else:
+                # Force numeric conversion for other columns
+                X_data_list.append(pd.to_numeric(df[col], errors='coerce').fillna(0).values.reshape(-1, 1))
+        
+        # Combine all columns
+        X_data = np.hstack(X_data_list)
+        
+        if 'waterdepth' not in df.columns:
+            logger.error("Target column 'waterdepth' not found in data")
+            raise ValueError("Target column 'waterdepth' not found in data")
+            
+        # Force numeric conversion for target
+        y_data = pd.to_numeric(df['waterdepth'], errors='coerce').fillna(0).values
+        
+        # Create sliding windows
+        X_windows = []
+        y_windows = []
+        
+        for i in range(0, len(df) - self.window_size + 1, self.step_size):
+            X_windows.append(X_data[i:i+self.window_size])
+            # Target is the water depth at the end of the window
+            y_windows.append(y_data[i+self.window_size-1])
+            
+        return np.array(X_windows), np.array(y_windows)
+            
+    def clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Clean the data by handling missing values and outliers
+        
+        Args:
+            df (pd.DataFrame): Input dataframe
+            
+        Returns:
+            pd.DataFrame: Cleaned dataframe
+        """
+        # Make a copy to avoid modifying the original
+        df_clean = df.copy()
+        
+        # Check for missing values
+        missing_values = df_clean.isnull().sum()
+        if missing_values.sum() > 0:
+            logger.info(f"Missing values detected: {missing_values}")
+        
+        # Handle missing values in rainfall data
+        if 'rainfall' in df_clean.columns:
+            df_clean['rainfall'] = df_clean['rainfall'].fillna(0)
+            
+        # Handle missing values in weather data using mode
+        if 'weather' in df_clean.columns:
+            df_clean['weather'] = df_clean['weather'].fillna(df_clean['weather'].mode()[0])
+            
+        # Handle missing values in wind speed using median
+        if 'windspeed' in df_clean.columns:
+            df_clean['windspeed'] = df_clean['windspeed'].fillna(df_clean['windspeed'].median())
+            
+        # Handle missing values in water depth
+        if 'waterdepth' in df_clean.columns:
+            # First, forward fill to propagate last valid observation
+            df_clean['waterdepth'] = df_clean['waterdepth'].ffill()
+            # Then, backward fill to handle missing values at the beginning
+            df_clean['waterdepth'] = df_clean['waterdepth'].bfill()
+            # If there's still missing values, fill with 0
+            df_clean['waterdepth'] = df_clean['waterdepth'].fillna(0)
+        
+        # Remove any remaining rows with missing values
+        df_clean = df_clean.dropna()
+        
+        # Check for outliers in rainfall data (values significantly higher than normal)
+        if 'rainfall' in df_clean.columns:
+            # Define threshold as 3x the 99th percentile
+            threshold = 3 * df_clean['rainfall'].quantile(0.99)
+            outliers = df_clean[df_clean['rainfall'] > threshold]
+            
+            if not outliers.empty:
+                logger.info(f"Found {len(outliers)} outliers in rainfall data")
+                # Cap the outliers at the threshold value
+                df_clean.loc[df_clean['rainfall'] > threshold, 'rainfall'] = threshold
+        
+        return df_clean
+        
+    def interpolate_time_series(self, df: pd.DataFrame, freq: str = '5min') -> pd.DataFrame:
+        """
+        Resample the time series to a uniform frequency and interpolate missing values
+        
+        Args:
+            df (pd.DataFrame): Input dataframe
+            freq (str): Frequency for resampling (default: '5min')
+            
+        Returns:
+            pd.DataFrame: Resampled and interpolated dataframe
+        """
+        # Make a copy
+        df_resampled = df.copy()
+        
+        # Ensure timestamp column exists
+        if 'timestamp' not in df_resampled.columns:
+            if 'clctTime' in df_resampled.columns:
+                df_resampled['timestamp'] = pd.to_datetime(df_resampled['clctTime'])
+            else:
+                raise ValueError("No timestamp column found in data")
+        
+        # Ensure timestamp is a datetime type
+        df_resampled['timestamp'] = pd.to_datetime(df_resampled['timestamp'])
+        
+        # Get numeric columns
+        numeric_cols = df_resampled.select_dtypes(include=[np.number]).columns.tolist()
+        
+        # For each station, resample separately
+        resampled_dfs = []
+        for station_code, group in df_resampled.groupby('station_code'):
+            # Make a copy of the group
+            group_copy = group.copy()
+            
+            # Check for duplicate timestamps
+            has_duplicates = group_copy.duplicated('timestamp').any()
+            if has_duplicates:
+                logger.warning(f"Found duplicate timestamps for station {station_code}. Handling duplicates...")
+                
+                # Group by timestamp and aggregate
+                # For numeric columns, take the mean
+                # For categorical columns, take the first value
+                numeric_agg = {col: 'mean' for col in numeric_cols if col in group_copy.columns and col != 'station_code'}
+                
+                # For categorical columns, take the most common value
+                categorical_cols = [col for col in group_copy.columns if col not in numeric_cols and col != 'timestamp']
+                categorical_agg = {col: lambda x: x.mode()[0] if not x.mode().empty else x.iloc[0] for col in categorical_cols}
+                
+                # Combine aggregations
+                agg_dict = {**numeric_agg, **categorical_agg}
+                
+                # Apply aggregation to remove duplicates
+                group_copy = group_copy.groupby('timestamp').agg(agg_dict).reset_index()
+                
+                # Add back station_code
+                group_copy['station_code'] = station_code
+            
+            # Now we should have unique timestamps
+            # Set timestamp as index
+            group_copy = group_copy.set_index('timestamp')
+            
+            # Resample numeric columns
+            try:
+                # Get only numeric columns (excluding station_code which might be numeric)
+                numeric_data_cols = [col for col in numeric_cols if col in group_copy.columns and col != 'station_code']
+                
+                if numeric_data_cols:
+                    numeric_data = group_copy[numeric_data_cols].copy()
+                    
+                    # Resample and interpolate
+                    resampled_numeric = numeric_data.resample(freq).asfreq()
+                    resampled_numeric = resampled_numeric.interpolate(method='linear')
+                    
+                    # For categorical columns, forward fill
+                    categorical_cols = [col for col in group_copy.columns if col not in numeric_cols]
+                    
+                    if categorical_cols:
+                        categorical_data = group_copy[categorical_cols].copy()
+                        resampled_categorical = categorical_data.resample(freq).ffill().bfill()
+                        
+                        # Combine numeric and categorical
+                        resampled_group = pd.concat([resampled_numeric, resampled_categorical], axis=1)
+                    else:
+                        resampled_group = resampled_numeric
+                    
+                    # Add station_code as a column if it's not already there
+                    if 'station_code' not in resampled_group.columns:
+                        resampled_group['station_code'] = station_code
+                    
+                    resampled_dfs.append(resampled_group)
+                else:
+                    # If no numeric columns, just resample with forward fill
+                    resampled_group = group_copy.resample(freq).ffill().bfill()
+                    resampled_dfs.append(resampled_group)
+            except Exception as e:
+                logger.error(f"Error resampling station {station_code}: {str(e)}")
+                # If resampling fails, just use the original group
+                resampled_dfs.append(group_copy)
+        
+        # Combine all resampled dataframes
+        if resampled_dfs:
+            df_resampled = pd.concat(resampled_dfs)
+        
+        # Reset the index to get timestamp back as a column
+        df_resampled = df_resampled.reset_index()
+        
+        return df_resampled
+        
+    # def create_sliding_windows(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+    #     """
+    #     Create sliding windows from time series data
+        
+    #     Args:
+    #         df (pd.DataFrame): Input dataframe
+            
+    #     Returns:
+    #         Tuple[np.ndarray, np.ndarray]: X (input features) and y (target) arrays
+    #     """
+    #     # Extract input and target columns
+    #     input_cols = ['rainfall']
+    #     if 'weather' in df.columns:
+    #         input_cols.append('weather')
+    #     if 'windspeed' in df.columns:
+    #         input_cols.append('windspeed')
+            
+    #     # Also include station_code as a feature
+    #     if 'station_code' in df.columns:
+    #         input_cols.append('station_code')
+            
+    #     X_data = df[input_cols].values
+        
+    #     if 'waterdepth' not in df.columns:
+    #         logger.error("Target column 'waterdepth' not found in data")
+    #         raise ValueError("Target column 'waterdepth' not found in data")
+            
+    #     y_data = df['waterdepth'].values
+        
+    #     # Create sliding windows
+    #     X_windows = []
+    #     y_windows = []
+        
+    #     for i in range(0, len(df) - self.window_size + 1, self.step_size):
+    #         X_windows.append(X_data[i:i+self.window_size])
+    #         # Target is the water depth at the end of the window
+    #         y_windows.append(y_data[i+self.window_size-1])
+            
+    #     return np.array(X_windows), np.array(y_windows)
+        
+    def fit(self, X, y=None):
+        """
+        Fit method (required for sklearn compatibility)
+        """
+        return self
+        
+    def transform(self, X, y=None):
+        """
+        Transform method (required for sklearn compatibility)
+        
+        Args:
+            X: Input data (a list of file paths, a DataFrame, or list of DataFrames)
+            y: Target data (optional)
+            
+        Returns:
+            Tuple: Processed X and y data
+        """
+        # Keep the original y
+        original_y = y
+        
+        # If X is a list of file paths, load the data
+        if isinstance(X, list) and all(isinstance(item, str) for item in X):
+            dfs = [self.load_data(file_path) for file_path in X]
+            df = pd.concat(dfs, ignore_index=True)
+        elif isinstance(X, list) and all(isinstance(item, pd.DataFrame) for item in X):
+            # List of DataFrames
+            df = pd.concat(X, ignore_index=True)
+        elif isinstance(X, pd.DataFrame):
+            df = X
+        elif isinstance(X, np.ndarray):
+            # If X is already a processed window, just return it with the provided y or a dummy y
+            if len(X.shape) == 3:  # Shape: (n_samples, window_size, n_features)
+                # Use the provided y if available, otherwise create a dummy y
+                if original_y is None:
+                    dummy_y = np.zeros(X.shape[0])
+                    return X, dummy_y
+                else:
+                    return X, original_y
+        else:
+            raise ValueError("Input must be a DataFrame, a list of file paths, or a list of DataFrames")
+            
+        # Clean the data
+        df_clean = self.clean_data(df)
+        
+        # Extract target if it exists in the dataframe and wasn't provided separately
+        if original_y is None and 'waterdepth' in df_clean.columns:
+            extracted_y = pd.to_numeric(df_clean['waterdepth'], errors='coerce').fillna(0).values
+            logger.info(f"Extracted target from DataFrame in transform method, shape: {extracted_y.shape}")
+        else:
+            extracted_y = original_y  # Use the provided y or keep it as None
+        
+        # Interpolate
+        df_interpolated = self.interpolate_time_series(df_clean)
+        
+        # Create sliding windows
+        X_windows, sliding_y = self.create_sliding_windows(df_interpolated)
+        
+        # If y was provided or extracted, and has the right length, use it instead
+        if extracted_y is not None and len(extracted_y) == len(sliding_y):
+            sliding_y = extracted_y
+        
+        return X_windows, sliding_y
+
+
+================================================
+File: models/feature_engineer.py
+================================================
+import pandas as pd
+import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin
+import calendar
+import math
+from typing import List, Dict, Union, Tuple
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class FeatureEngineer(BaseEstimator, TransformerMixin):
+    """
+    Feature engineering class for waterlogging prediction
+    
+    Extracts and constructs features from rainfall time series data:
+    1. Unit rainfall
+    2. Seasonality coefficients
+    3. Rainfall interval features
+    4. Statistical features
+    """
+    
+    def __init__(self):
+        """
+        Initialize the FeatureEngineer
+        """
+        # Define rainy, transition, and dry months based on climatology
+        # These can be customized based on local climate
+        self.rainy_months = [6, 7, 8, 9]  # June to September
+        self.transition_months = [3, 4, 5, 10]  # March to May, October
+        self.dry_months = [1, 2, 11, 12]  # November to February
+        
+        # Define seasonality coefficients
+        self.season_coeffs = {
+            'rainy': 10,      # Strong coefficient for rainy season
+            'transition': 6,  # Medium coefficient for transition season
+            'dry': 2          # Low coefficient for dry season
+        }
+        
+        # Feature names
+        self.feature_names = [
+            'unit_rainfall',
+            'seasonality_coeff',
+            'rainfall_interval',
+            'wetting_coeff',
+            'infiltration_capacity',
+            'rainfall_mean',
+            'rainfall_max',
+            'rainfall_std',
+            'rainfall_kurtosis',
+            'rainfall_skewness',
+            'rainfall_auc'
+        ]
+        
+    def get_season_coefficient(self, month: int) -> float:
+        """
+        Determine the seasonality coefficient based on the month
+        
+        Args:
+            month (int): Month (1-12)
+            
+        Returns:
+            float: Seasonality coefficient
+        """
+        if month in self.rainy_months:
+            return self.season_coeffs['rainy']
+        elif month in self.transition_months:
+            return self.season_coeffs['transition']
+        else:
+            return self.season_coeffs['dry']
+    
+    def calculate_unit_rainfall(self, rainfall_series: np.ndarray) -> np.ndarray:
+        """
+        Calculate unit rainfall from cumulative rainfall
+        
+        Args:
+            rainfall_series (np.ndarray): Array of rainfall values
+            
+        Returns:
+            np.ndarray: Unit rainfall array
+        """
+        # Initialize unit rainfall array
+        unit_rainfall = np.zeros_like(rainfall_series)
+        
+        # First value is the same
+        unit_rainfall[0] = rainfall_series[0]
+        
+        # Calculate differences for subsequent values
+        for i in range(1, len(rainfall_series)):
+            # If current value is less than previous, it's a new rainfall event
+            if rainfall_series[i] < rainfall_series[i-1]:
+                unit_rainfall[i] = rainfall_series[i]
+            else:
+                # Calculate increment
+                unit_rainfall[i] = rainfall_series[i] - rainfall_series[i-1]
+                
+        return unit_rainfall
+    
+    def calculate_rainfall_interval(self, rainfall_series: np.ndarray, threshold: float = 0.1) -> Tuple[np.ndarray, List[int]]:
+        """
+        Calculate intervals between rainfall events
+        
+        Args:
+            rainfall_series (np.ndarray): Array of unit rainfall values
+            threshold (float): Minimum rainfall to consider as an event
+            
+        Returns:
+            Tuple[np.ndarray, List[int]]: Rainfall intervals and event indices
+        """
+        # Find indices where rainfall exceeds threshold (start of events)
+        event_indices = [i for i, r in enumerate(rainfall_series) if r > threshold]
+        
+        # Calculate intervals between events
+        intervals = np.zeros_like(rainfall_series)
+        
+        if not event_indices:
+            return intervals, []
+            
+        # For indices before first event, set a large interval
+        intervals[:event_indices[0]] = 24  # Assuming 24 hours
+        
+        # Calculate intervals between events
+        for i in range(len(event_indices) - 1):
+            current_event = event_indices[i]
+            next_event = event_indices[i+1]
+            interval = next_event - current_event
+            
+            # Set the interval for all points between these events
+            intervals[current_event:next_event] = interval
+            
+        # For indices after the last event, set the same interval as the last event
+        if event_indices:
+            intervals[event_indices[-1]:] = intervals[event_indices[-1] - 1] if event_indices[-1] > 0 else 24
+            
+        return intervals, event_indices
+        
+    def calculate_wetting_coefficient(self, rainfall_series: np.ndarray, intervals: np.ndarray) -> np.ndarray:
+        """
+        Calculate wetting coefficient (ratio of mean rainfall to interval)
+        
+        Args:
+            rainfall_series (np.ndarray): Array of rainfall values
+            intervals (np.ndarray): Array of rainfall intervals
+            
+        Returns:
+            np.ndarray: Wetting coefficient array
+        """
+        # Calculate mean rainfall for each point (cumulative mean up to this point)
+        cumulative_mean = np.zeros_like(rainfall_series)
+        for i in range(len(rainfall_series)):
+            if i == 0:
+                cumulative_mean[i] = rainfall_series[i]
+            else:
+                cumulative_mean[i] = np.mean(rainfall_series[:i+1])
+        
+        # Calculate wetting coefficient
+        wetting_coeff = np.zeros_like(rainfall_series)
+        
+        # Avoid division by zero
+        non_zero_intervals = intervals.copy()
+        non_zero_intervals[non_zero_intervals == 0] = 1
+        
+        wetting_coeff = cumulative_mean / non_zero_intervals
+        
+        return wetting_coeff
+        
+    def calculate_infiltration_capacity(self, rainfall_series: np.ndarray, intervals: np.ndarray, 
+                                        event_indices: List[int]) -> np.ndarray:
+        """
+        Calculate integrated infiltration capacity
+        
+        Args:
+            rainfall_series (np.ndarray): Array of rainfall values
+            intervals (np.ndarray): Array of rainfall intervals
+            event_indices (List[int]): Indices of rainfall events
+            
+        Returns:
+            np.ndarray: Infiltration capacity array
+        """
+        infiltration_capacity = np.zeros_like(rainfall_series)
+        
+        if not event_indices:
+            return infiltration_capacity
+            
+        # For each event, calculate infiltration capacity
+        for i, event_index in enumerate(event_indices):
+            # Get the interval for this event
+            interval = intervals[event_index]
+            
+            # Calculate max rainfall for this event
+            if i < len(event_indices) - 1:
+                event_rainfall = rainfall_series[event_index:event_indices[i+1]]
+            else:
+                event_rainfall = rainfall_series[event_index:]
+                
+            if len(event_rainfall) == 0:
+                continue
+                
+            max_rainfall = np.max(event_rainfall)
+            
+            # Calculate slopes
+            slopes = np.zeros_like(event_rainfall)
+            for j in range(1, len(event_rainfall)):
+                slopes[j] = event_rainfall[j] - event_rainfall[j-1]
+                
+            # Calculate infiltration capacity
+            # Using the formula C_i = e^(-lg(δ)) * R_max * ln(Σ|α|/L)
+            if interval > 0 and max_rainfall > 0:
+                sum_abs_slopes = np.sum(np.abs(slopes))
+                if sum_abs_slopes > 0:
+                    term = sum_abs_slopes / len(event_rainfall)
+                    if term > 0:
+                        capacity = np.exp(-np.log10(interval)) * max_rainfall * np.log(term)
+                        
+                        # Assign this capacity to all points in this event
+                        if i < len(event_indices) - 1:
+                            infiltration_capacity[event_index:event_indices[i+1]] = capacity
+                        else:
+                            infiltration_capacity[event_index:] = capacity
+        
+        return infiltration_capacity
+        
+    def calculate_statistical_features(self, rainfall_series: np.ndarray) -> Tuple[float, float, float, float, float, float]:
+        """
+        Calculate statistical features from rainfall time series
+        
+        Args:
+            rainfall_series (np.ndarray): Array of rainfall values
+            
+        Returns:
+            Tuple[float, float, float, float, float, float]: 
+                Mean, Max, Std, Kurtosis, Skewness, AUC
+        """
+        # Simple statistics
+        mean = np.mean(rainfall_series)
+        max_val = np.max(rainfall_series)
+        std = np.std(rainfall_series)
+        
+        # Kurtosis
+        if std > 0 and len(rainfall_series) > 3:
+            n = len(rainfall_series)
+            m4 = np.sum((rainfall_series - mean) ** 4) / n
+            kurtosis = m4 / (std ** 4) - 3
+        else:
+            kurtosis = 0
+            
+        # Skewness
+        if std > 0 and len(rainfall_series) > 2:
+            n = len(rainfall_series)
+            m3 = np.sum((rainfall_series - mean) ** 3) / n
+            skewness = m3 / (std ** 3)
+        else:
+            skewness = 0
+            
+        # Area Under Curve (simple sum for discrete time series)
+        auc = np.sum(rainfall_series)
+        
+        return mean, max_val, std, kurtosis, skewness, auc
+        
+    def extract_features_from_window(self, window: np.ndarray, timestamp: pd.Timestamp) -> np.ndarray:
+        """
+        Extract all features from a rainfall time window
+        
+        Args:
+            window (np.ndarray): Window of rainfall data
+            timestamp (pd.Timestamp): Timestamp for the window
+            
+        Returns:
+            np.ndarray: Array of extracted features
+        """
+        # Get rainfall series from the window
+        rainfall_series = window[:, 0]  # Assuming rainfall is the first column
+        
+        # Get month for seasonality
+        month = timestamp.month
+        seasonality_coeff = self.get_season_coefficient(month)
+        
+        # Calculate unit rainfall
+        unit_rainfall = self.calculate_unit_rainfall(rainfall_series)
+        
+        # Calculate rainfall intervals
+        intervals, event_indices = self.calculate_rainfall_interval(unit_rainfall)
+        
+        # Calculate wetting coefficient
+        wetting_coeff = self.calculate_wetting_coefficient(rainfall_series, intervals)
+        
+        # Calculate infiltration capacity
+        infiltration_capacity = self.calculate_infiltration_capacity(rainfall_series, intervals, event_indices)
+        
+        # Calculate statistical features
+        mean, max_val, std, kurtosis, skewness, auc = self.calculate_statistical_features(rainfall_series)
+        
+        # Create feature array
+        features = np.array([
+            np.mean(unit_rainfall),
+            seasonality_coeff,
+            np.mean(intervals),
+            np.mean(wetting_coeff),
+            np.mean(infiltration_capacity),
+            mean,
+            max_val,
+            std,
+            kurtosis,
+            skewness,
+            auc
+        ])
+        
+        return features
+        
+    def fit(self, X, y=None):
+        """
+        Fit method (required for sklearn compatibility)
+        """
+        return self
+        
+    def transform(self, X, y=None):
+        """
+        Transform method (required for sklearn compatibility)
+        
+        Args:
+            X: Input data (a tuple from DataProcessor or raw windows)
+            y: Target data (optional)
+            
+        Returns:
+            Tuple: Processed X features and y targets
+        """
+        # Handle different input types
+        X_windows = None
+        y_windows = None
+        timestamps = None
+        
+        # If X is a tuple from DataProcessor
+        if isinstance(X, tuple) and len(X) >= 2:
+            X_windows, y_windows = X[:2]
+            timestamps = X[2] if len(X) > 2 else [pd.Timestamp.now()] * len(X_windows)
+        # If X is raw window data (numpy array)
+        elif isinstance(X, np.ndarray) and len(X.shape) == 3:
+            X_windows = X
+            # Use provided y if available, otherwise create dummy
+            if y is not None:
+                y_windows = y
+            else:
+                y_windows = np.zeros(X_windows.shape[0])
+            timestamps = [pd.Timestamp.now()] * len(X_windows)
+        else:
+            raise ValueError("Input must be a tuple from DataProcessor or raw window data (numpy array)")
+        
+        # Make sure y_windows is not None
+        if y_windows is None:
+            if y is not None:
+                y_windows = y
+            else:
+                logger.warning("No target variable provided or extracted. Using dummy targets.")
+                y_windows = np.zeros(len(X_windows))
+                
+        # Initialize feature array
+        n_samples = len(X_windows)
+        n_features = len(self.feature_names)
+        
+        # If X_windows has additional features beyond rainfall (like weather, windspeed)
+        # we need to include them
+        additional_features = X_windows.shape[2] - 1  # Subtract rainfall
+        
+        # Total features = extracted rainfall features + additional features
+        X_features = np.zeros((n_samples, n_features + additional_features))
+        
+        # Extract features for each window
+        for i in range(n_samples):
+            try:
+                # Extract rainfall features - ensure rainfall values are numeric
+                rainfall_series = X_windows[i, :, 0].astype(float)
+                rainfall_features = self.extract_features_from_window(
+                    np.column_stack((rainfall_series, np.zeros((len(rainfall_series), X_windows.shape[2]-1)))), 
+                    timestamps[i]
+                )
+                X_features[i, :n_features] = rainfall_features
+                
+                # Include additional features (average over the window)
+                if additional_features > 0:
+                    for j in range(additional_features):
+                        try:
+                            # Try to convert to float - if it fails, use a default value
+                            values = X_windows[i, :, j+1]
+                            
+                            # Check if values can be converted to float
+                            try:
+                                numeric_values = np.array(values, dtype=float)
+                                # If successful, calculate mean of numeric values
+                                # Handle NaN values by replacing with 0
+                                numeric_values = np.nan_to_num(numeric_values, nan=0.0)
+                                mean_value = np.mean(numeric_values)
+                                X_features[i, n_features + j] = mean_value
+                            except (ValueError, TypeError):
+                                # If values can't be converted to float, try mode for categorical
+                                # First convert to strings to ensure compatibility
+                                str_values = [str(v) for v in values]
+                                # Find most common value
+                                from collections import Counter
+                                most_common = Counter(str_values).most_common(1)
+                                if most_common:
+                                    # Use a simple hash of the string as a numeric representation
+                                    # This is a simplistic approach but should work for basic categoricals
+                                    X_features[i, n_features + j] = hash(most_common[0][0]) % 1000 / 1000.0
+                                else:
+                                    # Default value if all else fails
+                                    X_features[i, n_features + j] = 0.0
+                        except Exception as e:
+                            logger.warning(f"Error processing feature {j+1}: {str(e)}")
+                            X_features[i, n_features + j] = 0.0  # Default value
+            except Exception as e:
+                logger.error(f"Error extracting features for sample {i}: {str(e)}")
+                # Set default values
+                X_features[i, :] = 0.0
+        
+        logger.info(f"Feature engineering completed: {X_features.shape}, target shape: {y_windows.shape}")
+        return X_features, y_windows
+
+
+================================================
+File: models/risk_config.joblib
+================================================
+[Non-text file]
+
+
+================================================
+File: models/risk_predictor.py
+================================================
+import pandas as pd
+import numpy as np
+from typing import Dict, List, Union, Optional
+import logging
+import joblib
+import os
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class RiskPredictor:
+    """
+    Risk prediction module for waterlogging based on amplification factors and geospatial features
+    """
+    
+    def __init__(self, weights: Optional[Dict[str, float]] = None, config_path: Optional[str] = None):
+        """
+        Initialize the RiskPredictor
+        
+        Args:
+            weights (Dict, optional): Weights for different risk factors
+            config_path (str, optional): Path to config file with weights and station data
+        """
+        # Default weights for risk factors
+        self.default_weights = {
+            'amplification_factor': 0.4,
+            'elevation': 0.2,
+            'impervious_cover': 0.1,
+            'drainage': 0.15,
+            'slope': 0.1,
+            'proximity_to_water': 0.05
+        }
+        
+        # Use provided weights or defaults
+        self.weights = weights or self.default_weights
+        
+        # Normalize weights to sum to 1
+        weight_sum = sum(self.weights.values())
+        self.weights = {k: v / weight_sum for k, v in self.weights.items()}
+        
+        # Station data (will contain amplification factors and geospatial features)
+        self.station_data = {}
+        
+        # Load config if provided
+        if config_path and os.path.exists(config_path):
+            self.load_config(config_path)
+        else:
+            # Initialize with dummy data for the stations
+            self._initialize_dummy_station_data()
+            
+    def _initialize_dummy_station_data(self):
+        """
+        Initialize dummy station data for testing purposes
+        """
+        # For each station (1-7), create dummy geospatial data
+        for station_id in range(1, 8):
+            # Random values for each feature, with realistic ranges
+            self.station_data[str(station_id)] = {
+                'amplification_factor': np.random.uniform(0.1, 0.5),
+                'elevation': np.random.uniform(5, 50),  # meters
+                'impervious_cover': np.random.uniform(0.6, 0.95),  # fraction
+                'drainage_area': np.random.uniform(100, 350),  # m²
+                'drainage_volume': np.random.uniform(5000, 15000),  # m³
+                'slope': np.random.uniform(0.01, 0.1),  # ratio
+                'proximity_to_water': np.random.uniform(0, 500)  # meters
+            }
+        
+        # Normalize geographic features
+        self._normalize_features()
+        
+    def _normalize_features(self):
+        """
+        Normalize geographic features across all stations to [0,1] range
+        """
+        # Features to normalize
+        features = ['elevation', 'drainage_area', 'drainage_volume', 'slope', 'proximity_to_water']
+        
+        # Find min and max for each feature
+        feature_ranges = {}
+        for feature in features:
+            values = [station_data[feature] for station_data in self.station_data.values() 
+                      if feature in station_data]
+            if values:
+                feature_ranges[feature] = (min(values), max(values))
+        
+        # Normalize each feature
+        for station_id, data in self.station_data.items():
+            for feature in features:
+                if feature in data and feature in feature_ranges:
+                    min_val, max_val = feature_ranges[feature]
+                    if max_val > min_val:  # Avoid division by zero
+                        normalized_value = (data[feature] - min_val) / (max_val - min_val)
+                        
+                        # Store both raw and normalized values
+                        data[f'{feature}_normalized'] = normalized_value
+        
+    def load_config(self, config_path: str):
+        """
+        Load configuration data (weights and station data) from file
+        
+        Args:
+            config_path (str): Path to the config file
+        """
+        logger.info(f"Loading risk predictor config from {config_path}")
+        
+        try:
+            config_data = joblib.load(config_path)
+            
+            # Update weights if provided
+            if 'weights' in config_data:
+                self.weights = config_data['weights']
+                
+            # Update station data if provided
+            if 'station_data' in config_data:
+                self.station_data = config_data['station_data']
+                
+            # Normalize features
+            self._normalize_features()
+                
+        except Exception as e:
+            logger.error(f"Error loading config: {str(e)}")
+            # Fall back to dummy data
+            self._initialize_dummy_station_data()
+            
+    def save_config(self, config_path: str):
+        """
+        Save configuration data to file
+        
+        Args:
+            config_path (str): Path to save the config file
+        """
+        logger.info(f"Saving risk predictor config to {config_path}")
+        
+        config_data = {
+            'weights': self.weights,
+            'station_data': self.station_data
+        }
+        
+        try:
+            joblib.dump(config_data, config_path)
+        except Exception as e:
+            logger.error(f"Error saving config: {str(e)}")
+            
+    def calculate_amplification_factor(self, station_id: str, rainfall: float, 
+                                       waterdepth: float) -> float:
+        """
+        Calculate the amplification factor (ratio of waterlogging depth to rainfall)
+        
+        Args:
+            station_id (str): Station ID
+            rainfall (float): Rainfall amount (mm)
+            waterdepth (float): Waterlogging depth (m)
+            
+        Returns:
+            float: Amplification factor
+        """
+        # Ensure rainfall is not zero to avoid division by zero
+        if rainfall <= 0:
+            return 0
+            
+        # Convert rainfall from mm to m for consistent units
+        rainfall_m = rainfall / 1000.0
+        
+        # Calculate amplification factor
+        af = waterdepth / rainfall_m
+        
+        # Update station data
+        if station_id in self.station_data:
+            # Use exponential moving average to update the factor (smoothing)
+            alpha = 0.3  # Smoothing factor
+            old_af = self.station_data[station_id].get('amplification_factor', af)
+            updated_af = alpha * af + (1 - alpha) * old_af
+            self.station_data[station_id]['amplification_factor'] = updated_af
+        else:
+            # Initialize if station not in data
+            self.station_data[station_id] = {'amplification_factor': af}
+            
+        return af
+        
+    def predict_risk(self, station_id: str, rainfall: float, waterdepth: float) -> Dict:
+        """
+        Predict the risk level based on amplification factor and geospatial features
+        
+        Args:
+            station_id (str): Station ID
+            rainfall (float): Rainfall amount (mm)
+            waterdepth (float): Waterlogging depth (m)
+            
+        Returns:
+            Dict: Risk assessment including level and score
+        """
+        # Calculate amplification factor
+        af = self.calculate_amplification_factor(station_id, rainfall, waterdepth)
+        
+        # Check if station exists in data
+        if station_id not in self.station_data:
+            logger.warning(f"Station {station_id} not found in data. Using default values.")
+            # Add station with default values if not found
+            self.station_data[station_id] = {
+                'amplification_factor': af,
+                'elevation_normalized': 0.5,
+                'impervious_cover': 0.8,
+                'drainage_area_normalized': 0.5,
+                'drainage_volume_normalized': 0.5,
+                'slope_normalized': 0.5,
+                'proximity_to_water_normalized': 0.5
+            }
+        
+        # Get station data
+        station_data = self.station_data[station_id]
+        
+        # Calculate risk score
+        risk_score = (
+            self.weights['amplification_factor'] * station_data.get('amplification_factor', 0) +
+            self.weights['elevation'] * (1 - station_data.get('elevation_normalized', 0.5)) +
+            self.weights['impervious_cover'] * station_data.get('impervious_cover', 0.8) +
+            self.weights['drainage'] * (1 - station_data.get('drainage_volume_normalized', 0.5)) +
+            self.weights['slope'] * (1 - station_data.get('slope_normalized', 0.5)) +
+            self.weights['proximity_to_water'] * station_data.get('proximity_to_water_normalized', 0.5)
+        )
+        
+        # Determine risk level
+        if risk_score < 0.3:
+            risk_level = 'low'
+        elif risk_score < 0.6:
+            risk_level = 'moderate'
+        else:
+            risk_level = 'high'
+            
+        return {
+            'risk_score': risk_score,
+            'risk_level': risk_level,
+            'amplification_factor': station_data.get('amplification_factor', 0),
+            'factors': {
+                'elevation': 1 - station_data.get('elevation_normalized', 0.5),
+                'impervious_cover': station_data.get('impervious_cover', 0.8),
+                'drainage': 1 - station_data.get('drainage_volume_normalized', 0.5),
+                'slope': 1 - station_data.get('slope_normalized', 0.5),
+                'proximity_to_water': station_data.get('proximity_to_water_normalized', 0.5)
+            }
+        }
+        
+    def update_weights(self, new_weights: Dict[str, float]):
+        """
+        Update the weights for risk factors
+        
+        Args:
+            new_weights (Dict): New weights for risk factors
+        """
+        # Update weights
+        self.weights.update(new_weights)
+        
+        # Normalize weights to sum to 1
+        weight_sum = sum(self.weights.values())
+        self.weights = {k: v / weight_sum for k, v in self.weights.items()}
+        
+        logger.info(f"Updated risk factor weights: {self.weights}")
+        
+    def update_station_data(self, station_id: str, data: Dict):
+        """
+        Update geospatial data for a station
+        
+        Args:
+            station_id (str): Station ID
+            data (Dict): New geospatial data
+        """
+        # Check if station exists
+        if station_id not in self.station_data:
+            self.station_data[station_id] = {}
+            
+        # Update data
+        self.station_data[station_id].update(data)
+        
+        # Re-normalize features
+        self._normalize_features()
+        
+        logger.info(f"Updated data for station {station_id}")
+        
+    def get_station_data(self, station_id: str = None) -> Dict:
+        """
+        Get geospatial data for a station or all stations
+        
+        Args:
+            station_id (str, optional): Station ID
+            
+        Returns:
+            Dict: Station data
+        """
+        if station_id:
+            return self.station_data.get(station_id, {})
+        else:
+            return self.station_data
+            
+    def get_weights(self) -> Dict[str, float]:
+        """
+        Get the current weights for risk factors
+        
+        Returns:
+            Dict: Current weights
+        """
+        return self.weights
+
+
+================================================
+File: models/waterlogging_model.joblib
+================================================
+[Non-text file]
+
+
+================================================
+File: models/waterlogging_predictor.py
+================================================
+import pandas as pd
+import numpy as np
+import joblib
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor
+from sklearn.model_selection import GridSearchCV, cross_val_score, KFold
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.pipeline import Pipeline
+from typing import List, Dict, Union, Tuple, Optional
+import logging
+import os
+from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, TransformerMixin
+
+from models.data_processor import DataProcessor
+from models.feature_engineer import FeatureEngineer
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class WaterloggingPredictor(BaseEstimator, RegressorMixin):
+    """
+    Waterlogging prediction model that uses pipelines for data processing,
+    feature engineering, and prediction.
+    """
+    
+    def __init__(self, model_type: str = 'rf', window_size: int = 6, 
+                 model_params: Optional[Dict] = None, model_path: Optional[str] = None):
+        """
+        Initialize the WaterloggingPredictor
+        
+        Args:
+            model_type (str): Type of model to use ('rf', 'gbdt', 'adaboost')
+            window_size (int): Size of the sliding window for time series
+            model_params (Dict, optional): Parameters for the model
+            model_path (str, optional): Path to a pre-trained model file
+        """
+        self.model_type = model_type
+        self.window_size = window_size
+        self.model_params = model_params or {}
+        self.model_path = model_path
+        
+        # Initialize pipeline components
+        self.data_processor = DataProcessor(window_size=window_size)
+        self.feature_engineer = FeatureEngineer()
+        
+        # Initialize model
+        self.model = self._initialize_model()
+        
+        # Create the pipeline
+        self.pipeline = self._create_pipeline()
+        
+        # Load pre-trained model if provided
+        if self.model_path and os.path.exists(self.model_path):
+            self.load_model(self.model_path)
+            
+    def _initialize_model(self):
+        """
+        Initialize the model based on model_type
+        
+        Returns:
+            BaseEstimator: Initialized model
+        """
+        if self.model_type == 'rf':
+            params = {
+                'n_estimators': self.model_params.get('n_estimators', 100),
+                'max_depth': self.model_params.get('max_depth', None),
+                'min_samples_split': self.model_params.get('min_samples_split', 2),
+                'random_state': self.model_params.get('random_state', 42)
+            }
+            return RandomForestRegressor(**params)
+            
+        elif self.model_type == 'gbdt':
+            params = {
+                'n_estimators': self.model_params.get('n_estimators', 100),
+                'learning_rate': self.model_params.get('learning_rate', 0.1),
+                'max_depth': self.model_params.get('max_depth', 3),
+                'random_state': self.model_params.get('random_state', 42)
+            }
+            return GradientBoostingRegressor(**params)
+            
+        elif self.model_type == 'adaboost':
+            params = {
+                'n_estimators': self.model_params.get('n_estimators', 50),
+                'learning_rate': self.model_params.get('learning_rate', 1.0),
+                'random_state': self.model_params.get('random_state', 42)
+            }
+            return AdaBoostRegressor(**params)
+            
+        else:
+            raise ValueError(f"Unsupported model type: {self.model_type}")
+            
+    class TransformerWrapper(BaseEstimator, TransformerMixin):
+        """
+        A wrapper around transformers to ensure only X is passed through the pipeline
+        """
+        def __init__(self, transformer):
+            self.transformer = transformer
+            
+        def fit(self, X, y=None):
+            self.transformer.fit(X, y)
+            return self
+            
+        def transform(self, X):
+            result = self.transformer.transform(X, None)
+            # Return only X, not the (X, y) tuple
+            if isinstance(result, tuple) and len(result) > 0:
+                return result[0]
+            return result
+
+    def _create_pipeline(self):
+        """
+        Create the machine learning pipeline with proper target variable handling
+        
+        Returns:
+            Pipeline: Scikit-learn pipeline
+        """
+        return Pipeline([
+            ('data_processor', WaterloggingPredictor.TransformerWrapper(self.data_processor)),
+            ('feature_engineer', WaterloggingPredictor.TransformerWrapper(self.feature_engineer)),
+            ('model', self.model)
+        ])
+        
+    def fit(self, X, y=None):
+        """
+        Fit the model with proper handling of pipeline data flow
+        
+        Args:
+            X: Input data (list of file paths or DataFrame)
+            y: Target data (not used as targets are extracted from X)
+            
+        Returns:
+            self: The fitted model
+        """
+        logger.info("Fitting waterlogging prediction model...")
+        
+        # Extract target if needed
+        target_y = y
+        
+        # X can be a list of file paths, a DataFrame, or a list of DataFrames
+        if isinstance(X, list):
+            if all(isinstance(item, str) for item in X):
+                logger.info(f"Training on {len(X)} data files")
+            elif all(isinstance(item, pd.DataFrame) for item in X):
+                logger.info(f"Training on {len(X)} DataFrames")
+                # Convert list of DataFrames to a single DataFrame
+                X = pd.concat(X, ignore_index=True)
+        elif isinstance(X, pd.DataFrame):
+            logger.info(f"Training on DataFrame with {len(X)} rows")
+            
+            # Extract target from DataFrame if available and not provided separately
+            if target_y is None and 'waterdepth' in X.columns:
+                # We need to ensure the target is converted to numeric
+                target_y = pd.to_numeric(X['waterdepth'], errors='coerce').fillna(0).values
+                logger.info(f"Extracted target variable from DataFrame, shape: {target_y.shape}")
+        else:
+            raise ValueError("X must be a list of file paths, a DataFrame, or a list of DataFrames")
+        
+        # If we still don't have a target, try to extract it through the data_processor
+        if target_y is None:
+            try:
+                # Process data through the first step to get features and target
+                X_processed, extracted_y = self.data_processor.transform(X)
+                if extracted_y is not None and len(extracted_y) > 0:
+                    target_y = extracted_y
+                    logger.info(f"Extracted target through DataProcessor, shape: {target_y.shape}")
+                    
+                    # Now process through feature engineering
+                    X_features, _ = self.feature_engineer.transform((X_processed, target_y))
+                    
+                    # Train the model directly
+                    self.model.fit(X_features, target_y)
+                    logger.info("Model training completed via direct pipeline")
+                    return self
+            except Exception as e:
+                logger.warning(f"Could not extract target through direct pipeline: {str(e)}")
+        
+        # If we still don't have a target, raise an error
+        if target_y is None:
+            raise ValueError("Could not extract target variable 'waterdepth' from input data")
+        
+        try:
+            # Use the pipeline with the extracted target
+            self.pipeline.fit(X, target_y)
+            logger.info("Model training completed via pipeline")
+        except Exception as e:
+            # If pipeline fails, try direct approach
+            logger.warning(f"Pipeline fit failed: {str(e)}. Trying direct approach.")
+            
+            # Process data through each step manually
+            X_processed, _ = self.data_processor.transform(X)
+            X_features, _ = self.feature_engineer.transform((X_processed, None))
+            
+            # Ensure X_features is 2D
+            if len(X_features.shape) > 2:
+                X_features = X_features.reshape(X_features.shape[0], -1)
+                
+            # Train the model directly
+            self.model.fit(X_features, target_y)
+            logger.info("Model training completed via direct approach")
+        
+        return self
+
+    def predict(self, X):
+        """
+        Make predictions with proper handling of pipeline data flow
+        
+        Args:
+            X: Input data
+            
+        Returns:
+            np.ndarray: Predicted waterlogging depths
+        """
+        try:
+            # Try using the pipeline
+            return self.pipeline.predict(X)
+        except Exception as e:
+            logger.warning(f"Pipeline prediction failed: {str(e)}. Trying direct approach.")
+            
+            # Process data through each step manually
+            X_processed, _ = self.data_processor.transform(X)
+            X_features, _ = self.feature_engineer.transform((X_processed, None))
+            
+            # Ensure X_features is 2D
+            if len(X_features.shape) > 2:
+                X_features = X_features.reshape(X_features.shape[0], -1)
+                
+            # Make predictions directly
+            return self.model.predict(X_features)
+        
+    def evaluate(self, X_test, y_test=None):
+        """
+        Evaluate the model on test data
+        
+        Args:
+            X_test: Test data
+            y_test: Test targets (optional, will be extracted from X_test if not provided)
+            
+        Returns:
+            Dict: Evaluation metrics
+        """
+        # Extract target if not provided separately
+        if y_test is None and isinstance(X_test, pd.DataFrame) and 'waterdepth' in X_test.columns:
+            y_test = pd.to_numeric(X_test['waterdepth'], errors='coerce').fillna(0).values
+            logger.info(f"Extracted target from test data, shape: {y_test.shape}")
+        
+        # Make predictions
+        y_pred = self.predict(X_test)
+        
+        # Extract true values if y_test is still None
+        if y_test is None:
+            # Process the test data through the first two steps of the pipeline
+            X_processed = self.pipeline.steps[0][1].transform(X_test)
+            _, y_test = self.pipeline.steps[1][1].transform(X_processed)
+        
+        # Check if we have valid targets
+        if y_test is None or len(y_test) == 0:
+            logger.error("Could not extract target values for evaluation")
+            return {'mse': float('inf'), 'rmse': float('inf'), 'r2': 0.0}
+        
+        # Ensure predictions and targets have the same length
+        if len(y_pred) != len(y_test):
+            logger.warning(f"Prediction length ({len(y_pred)}) doesn't match target length ({len(y_test)})")
+            # Use the minimum length
+            min_len = min(len(y_pred), len(y_test))
+            y_pred = y_pred[:min_len]
+            y_test = y_test[:min_len]
+        
+        # Calculate metrics
+        mse = mean_squared_error(y_test, y_pred)
+        rmse = np.sqrt(mse)
+        r2 = r2_score(y_test, y_pred)
+        
+        metrics = {
+            'mse': mse,
+            'rmse': rmse,
+            'r2': r2
+        }
+        
+        logger.info(f"Model evaluation metrics: {metrics}")
+        return metrics
+        
+    def cross_validate(self, X, n_splits=5):
+        """
+        Perform cross-validation
+        
+        Args:
+            X: Input data (DataFrame or list of file paths)
+            n_splits (int): Number of CV splits
+            
+        Returns:
+            Dict: Cross-validation results
+        """
+        logger.info(f"Performing {n_splits}-fold cross-validation")
+        
+        # Handle different input types
+        if isinstance(X, list) and all(isinstance(item, str) for item in X):
+            # Load data from file paths
+            dfs = [self.data_processor.load_data(file_path) for file_path in X]
+            df = pd.concat(dfs, ignore_index=True)
+        elif isinstance(X, pd.DataFrame):
+            df = X
+        else:
+            raise ValueError("X must be a DataFrame or list of file paths")
+        
+        # Process the data through data_processor
+        X_clean = self.data_processor.clean_data(df)
+        
+        # Make sure timestamp is datetime
+        if 'timestamp' in X_clean.columns:
+            X_clean['timestamp'] = pd.to_datetime(X_clean['timestamp'])
+        
+        # Create train/test splits based on time for temporal data
+        if 'timestamp' in X_clean.columns:
+            # Sort by timestamp
+            X_clean = X_clean.sort_values('timestamp')
+            
+            # Create time-based folds
+            time_indices = np.array_split(np.arange(len(X_clean)), n_splits)
+            cv_splits = [(np.concatenate(time_indices[:i] + time_indices[i+1:]), time_indices[i]) 
+                        for i in range(n_splits)]
+        else:
+            # If no timestamp, use KFold
+            kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+            cv_splits = list(kf.split(X_clean))
+        
+        # Store metrics for each fold
+        mse_scores = []
+        r2_scores = []
+        
+        # Perform CV
+        for i, (train_idx, test_idx) in enumerate(cv_splits):
+            try:
+                # Split data
+                X_train = X_clean.iloc[train_idx].copy()
+                X_test = X_clean.iloc[test_idx].copy()
+                
+                # Train model on this fold
+                fold_model = WaterloggingPredictor(
+                    model_type=self.model_type,
+                    window_size=self.window_size,
+                    model_params=self.model_params
+                )
+                
+                # Fit the model
+                fold_model.fit(X_train)
+                
+                # Evaluate
+                metrics = fold_model.evaluate(X_test)
+                
+                mse = metrics['mse']
+                r2 = metrics['r2']
+                
+                mse_scores.append(mse)
+                r2_scores.append(r2)
+                
+                logger.info(f"Fold {i+1}: MSE = {mse:.6f}, R² = {r2:.6f}")
+                
+            except Exception as e:
+                logger.error(f"Error in fold {i+1}: {str(e)}")
+                # If a fold fails, use placeholder values
+                mse_scores.append(float('inf'))
+                r2_scores.append(0.0)
+        
+        # Calculate average metrics (excluding any failed folds)
+        valid_mse = [mse for mse in mse_scores if mse != float('inf')]
+        valid_r2 = [r2 for r2 in r2_scores if r2 != 0.0]
+        
+        avg_mse = np.mean(valid_mse) if valid_mse else float('inf')
+        avg_r2 = np.mean(valid_r2) if valid_r2 else 0.0
+        
+        cv_results = {
+            'mse_scores': mse_scores,
+            'r2_scores': r2_scores,
+            'avg_mse': avg_mse,
+            'avg_r2': avg_r2
+        }
+        
+        logger.info(f"Average MSE: {avg_mse:.6f}, Average R²: {avg_r2:.6f}")
+        return cv_results
+        
+    def tune_hyperparameters(self, X, param_grid=None):
+        """
+        Tune model hyperparameters using GridSearchCV
+        
+        Args:
+            X: Input data
+            param_grid (Dict, optional): Parameter grid for search
+            
+        Returns:
+            Dict: Best parameters and results
+        """
+        logger.info("Tuning model hyperparameters")
+        
+        # Default parameter grid if not provided
+        if param_grid is None:
+            if self.model_type == 'rf':
+                param_grid = {
+                    'model__n_estimators': [50, 100, 200],
+                    'model__max_depth': [None, 10, 20],
+                    'model__min_samples_split': [2, 5, 10]
+                }
+            elif self.model_type == 'gbdt':
+                param_grid = {
+                    'model__n_estimators': [50, 100, 200],
+                    'model__learning_rate': [0.01, 0.1, 0.2],
+                    'model__max_depth': [3, 5, 7]
+                }
+            elif self.model_type == 'adaboost':
+                param_grid = {
+                    'model__n_estimators': [50, 100, 200],
+                    'model__learning_rate': [0.01, 0.1, 1.0]
+                }
+            
+        # Create a GridSearchCV object
+        grid_search = GridSearchCV(
+            self.pipeline,
+            param_grid,
+            cv=5,
+            scoring='neg_mean_squared_error',
+            n_jobs=-1,
+            verbose=1
+        )
+        
+        # Fit the grid search
+        grid_search.fit(X)
+        
+        # Get the best parameters and score
+        best_params = grid_search.best_params_
+        best_score = -grid_search.best_score_  # Convert back to MSE
+        
+        logger.info(f"Best parameters: {best_params}")
+        logger.info(f"Best MSE: {best_score:.6f}")
+        
+        # Update the model with best parameters
+        self.model_params = {k.replace('model__', ''): v for k, v in best_params.items()}
+        self.model = self._initialize_model()
+        self.pipeline = self._create_pipeline()
+        
+        return {
+            'best_params': best_params,
+            'best_score': best_score,
+            'cv_results': grid_search.cv_results_
+        }
+        
+    def save_model(self, filepath):
+        """
+        Save the trained model to a file
+        
+        Args:
+            filepath (str): Path to save the model
+        """
+        logger.info(f"Saving model to {filepath}")
+        joblib.dump(self.pipeline, filepath)
+        
+    def load_model(self, filepath):
+        """
+        Load a trained model from a file
+        
+        Args:
+            filepath (str): Path to the model file
+        """
+        if not os.path.exists(filepath):
+            logger.error(f"Model file not found: {filepath}")
+            raise FileNotFoundError(f"Model file not found: {filepath}")
+            
+        logger.info(f"Loading model from {filepath}")
+        self.pipeline = joblib.load(filepath)
+        
+        # Extract pipeline components
+        self.data_processor = self.pipeline.named_steps['data_processor']
+        self.feature_engineer = self.pipeline.named_steps['feature_engineer']
+        self.model = self.pipeline.named_steps['model']
+        
+    def update_model(self, X_new, y_new=None):
+        """
+        Update the model with new data (online learning)
+        
+        Args:
+            X_new: New data
+            y_new: New targets (not used as targets are extracted from X_new)
+            
+        Returns:
+            self: The updated model
+        """
+        logger.info("Updating model with new data")
+        
+        # Convert input to appropriate format if needed
+        if isinstance(X_new, pd.DataFrame):
+            # If X_new is a single dataframe
+            pass
+        elif isinstance(X_new, str):
+            # If X_new is a file path
+            X_new = [X_new]
+        
+        # Process new data
+        X_processed = self.pipeline.steps[0][1].transform(X_new)
+        X_features, y_new_processed = self.pipeline.steps[1][1].transform(X_processed)
+        
+        # Update model (if model supports partial_fit, use it, otherwise retrain)
+        if hasattr(self.model, 'partial_fit'):
+            self.model.partial_fit(X_features, y_new_processed)
+        else:
+            # Get existing data (if available)
+            try:
+                # This is a simplified approach - in a real system, you might want to
+                # store the training data separately or use incremental learning
+                X_features_old = getattr(self, '_X_features', None)
+                y_old = getattr(self, '_y', None)
+                
+                if X_features_old is not None and y_old is not None:
+                    # Combine old and new data
+                    X_features_combined = np.vstack([X_features_old, X_features])
+                    y_combined = np.concatenate([y_old, y_new_processed])
+                else:
+                    X_features_combined = X_features
+                    y_combined = y_new_processed
+                    
+                # Store for future updates
+                self._X_features = X_features_combined
+                self._y = y_combined
+                
+                # Retrain the model
+                self.model.fit(X_features_combined, y_combined)
+            except:
+                # If retrieval of old data fails, just train on new data
+                self.model.fit(X_features, y_new_processed)
+                
+        logger.info("Model updated successfully")
+        return self
+        
+    def get_feature_importance(self):
+        """
+        Get feature importance from the model
+        
+        Returns:
+            Dict: Feature names and their importance scores
+        """
+        # Check if model has feature_importances_ attribute
+        if not hasattr(self.model, 'feature_importances_'):
+            logger.warning("Model does not provide feature importances")
+            return None
+            
+        # Get feature names
+        feature_names = (
+            self.feature_engineer.feature_names + 
+            ['additional_feature_' + str(i) for i in range(self.model.feature_importances_.shape[0] - len(self.feature_engineer.feature_names))]
+        )
+        
+        # Create feature importance dictionary
+        feature_importance = dict(zip(feature_names, self.model.feature_importances_))
+        
+        # Sort by importance
+        feature_importance = {k: v for k, v in sorted(feature_importance.items(), key=lambda item: item[1], reverse=True)}
+        
+        return feature_importance
+
+
