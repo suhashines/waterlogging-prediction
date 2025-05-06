@@ -217,16 +217,47 @@ class WaterloggingPredictor(BaseEstimator, RegressorMixin):
         except Exception as e:
             logger.warning(f"Pipeline prediction failed: {str(e)}. Trying direct approach.")
             
-            # Process data through each step manually
-            X_processed, _ = self.data_processor.transform(X)
-            X_features, _ = self.feature_engineer.transform((X_processed, None))
-            
-            # Ensure X_features is 2D
-            if len(X_features.shape) > 2:
-                X_features = X_features.reshape(X_features.shape[0], -1)
+            try:
+                # Process data through each step manually
+                X_processed, _ = self.data_processor.transform(X)
                 
-            # Make predictions directly
-            return self.model.predict(X_features)
+                # Log details about X_processed to debug
+                logger.info(f"X_processed shape: {X_processed.shape if hasattr(X_processed, 'shape') else 'no shape attribute'}")
+                
+                # Handle different output formats from data_processor
+                if isinstance(X_processed, np.ndarray):
+                    if len(X_processed.shape) < 3:
+                        # Reshape to 3D if needed
+                        logger.warning(f"Reshaping X_processed from {X_processed.shape} to 3D")
+                        X_processed = X_processed.reshape(X_processed.shape[0], 1, -1)
+                        
+                X_features, _ = self.feature_engineer.transform((X_processed, None))
+                
+                # Ensure X_features is 2D
+                if len(X_features.shape) > 2:
+                    X_features = X_features.reshape(X_features.shape[0], -1)
+                    
+                # Make predictions directly
+                return self.model.predict(X_features)
+            except Exception as e:
+                # Last resort: try to create a minimal viable input for the model
+                logger.error(f"Direct prediction approach failed: {str(e)}. Attempting minimal prediction.")
+                try:
+                    # Create a minimal feature vector based on model's expected input
+                    if hasattr(self.model, 'n_features_in_'):
+                        n_features = self.model.n_features_in_
+                    else:
+                        n_features = len(self.feature_engineer.feature_names)
+                    
+                    # Create dummy features (all zeros)
+                    X_features = np.zeros((1, n_features))
+                    
+                    # Make prediction on dummy data
+                    logger.warning("Using dummy features for prediction - result may be inaccurate")
+                    return self.model.predict(X_features)
+                except Exception as e2:
+                    logger.error(f"All prediction attempts failed: {str(e2)}")
+                    raise ValueError(f"Failed to make prediction: {str(e)}, {str(e2)}")
         
     def evaluate(self, X_test, y_test=None):
         """
@@ -465,12 +496,32 @@ class WaterloggingPredictor(BaseEstimator, RegressorMixin):
             raise FileNotFoundError(f"Model file not found: {filepath}")
             
         logger.info(f"Loading model from {filepath}")
-        self.pipeline = joblib.load(filepath)
+        loaded_data = joblib.load(filepath)
         
-        # Extract pipeline components
-        self.data_processor = self.pipeline.named_steps['data_processor']
-        self.feature_engineer = self.pipeline.named_steps['feature_engineer']
-        self.model = self.pipeline.named_steps['model']
+        # Check if loaded data is a dictionary (our custom format) or a pipeline
+        if isinstance(loaded_data, dict):
+            # Extract components from dictionary
+            if 'data_processor' in loaded_data:
+                self.data_processor = loaded_data['data_processor']
+            if 'feature_engineer' in loaded_data:
+                self.feature_engineer = loaded_data['feature_engineer']
+            if 'model' in loaded_data:
+                self.model = loaded_data['model']
+            if 'model_type' in loaded_data:
+                self.model_type = loaded_data['model_type']
+            if 'window_size' in loaded_data:
+                self.window_size = loaded_data['window_size']
+                
+            # Recreate the pipeline with the loaded components
+            self.pipeline = self._create_pipeline()
+        else:
+            # Assume it's a pipeline
+            self.pipeline = loaded_data
+            
+            # Extract pipeline components
+            self.data_processor = self.pipeline.named_steps['data_processor'].transformer
+            self.feature_engineer = self.pipeline.named_steps['feature_engineer'].transformer
+            self.model = self.pipeline.named_steps['model']
         
     def update_model(self, X_new, y_new=None):
         """

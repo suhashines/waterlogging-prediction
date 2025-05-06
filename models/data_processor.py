@@ -100,7 +100,7 @@ class DataProcessor(BaseEstimator, TransformerMixin):
         Returns:
             Tuple[np.ndarray, np.ndarray]: X (input features) and y (target) arrays
         """
-        # Extract input and target columns
+        # Extract input columns
         input_cols = ['rainfall']
         if 'weather' in df.columns:
             input_cols.append('weather')
@@ -124,12 +124,14 @@ class DataProcessor(BaseEstimator, TransformerMixin):
         # Combine all columns
         X_data = np.hstack(X_data_list)
         
-        if 'waterdepth' not in df.columns:
-            logger.error("Target column 'waterdepth' not found in data")
-            raise ValueError("Target column 'waterdepth' not found in data")
-            
-        # Force numeric conversion for target
-        y_data = pd.to_numeric(df['waterdepth'], errors='coerce').fillna(0).values
+        # Check if waterdepth exists (for training) or create dummy values (for prediction)
+        if 'waterdepth' in df.columns:
+            # Force numeric conversion for target
+            y_data = pd.to_numeric(df['waterdepth'], errors='coerce').fillna(0).values
+        else:
+            # During prediction, create a dummy target of zeros
+            y_data = np.zeros(len(df))
+            logger.info("Target column 'waterdepth' not found - using dummy values for prediction")
         
         # Create sliding windows
         X_windows = []
