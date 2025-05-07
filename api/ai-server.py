@@ -144,7 +144,7 @@ def predict():
             'status': 'error'
         }), 500
 
-@app.route('/model/feedback', methods=['POST'])
+#@app.route('/model/feedback', methods=['POST'])
 def feedback():
     """
     Provide feedback to improve future predictions
