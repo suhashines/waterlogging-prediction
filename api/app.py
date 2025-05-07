@@ -1,6 +1,19 @@
+# api/app.py
 from flask import Flask
 import os
 import sys
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('api.log')
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Add parent directory to path to ensure imports work regardless of how the app is run
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -9,6 +22,24 @@ if parent_dir not in sys.path:
 
 def create_app():
     app = Flask(__name__)
+    
+    # Load ML models before registering routes
+    from api.model_loader import load_models
+    logger.info("Loading machine learning models...")
+    models = load_models()
+    logger.info(f"Models loaded: {list(models.keys())}")
+    
+    # Add a health check endpoint
+    @app.route('/health')
+    def health_check():
+        from api.model_loader import waterlogging_predictor, risk_predictor
+        return {
+            "status": "ok",
+            "models": {
+                "waterlogging_model": "loaded" if waterlogging_predictor is not None else "not loaded",
+                "risk_model": "loaded" if risk_predictor is not None else "not loaded"
+            }
+        }
     
     # Import and register blueprints
     # Using direct imports that work both when run directly or as a module
