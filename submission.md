@@ -37,7 +37,7 @@
 
 ### 💻 4. GitHub Repository (All Code Pushed)
 
-🔗 [GitHub Repository](<insert-github-link-here>)
+🔗 [GitHub Repository](https://github.com/prithu-anan/jolojot)
 
 **Repository Checklist:**
 
