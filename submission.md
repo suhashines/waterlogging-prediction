@@ -5,6 +5,8 @@
 ### 1. Working Prototype of Assigned Challenge
 
 -  **Live Deployment**:  
+
+  🔗 [Hosted Model URL](<insert-live-project-url-here>)
   🔗 [Hosted Project URL](<insert-live-project-url-here>)  
   *OR*  
   - ✅ **API Endpoint**:  

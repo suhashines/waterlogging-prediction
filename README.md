@@ -1,6 +1,6 @@
 # Waterlogging Prediction and Risk Analysis System
 
-This system predicts waterlogging depth and analyzes risk based on rainfall data and geographical features. It follows the methodology outlined in the research paper and implements a Flask API for predictions and feedback.
+This system predicts waterlogging depth and analyzes risk based on rainfall data and geographical features.
 
 ## Project Structure
 
@@ -27,6 +27,7 @@ waterlogging_prediction/
 ├── api/                    # Flask API implementation
 │   ├── __init__.py
 │   └── app.py
+    └── ...
 │
 ├── config.py               # Configuration settings
 ├── train.py                # Training script
@@ -56,11 +57,7 @@ waterlogging_prediction/
    - Incorporates geographical features
    - Produces risk scores and levels (low, moderate, high)
 
-5. **API Endpoints**:
-   - `/model/predict/`: Predict waterlogging depth and risk
-   - `/model/feedback`: Provide feedback for model improvement
-   - `/model/weights`: Get or update risk factor weights
-   - `/model/station-data`: Get or update station geographical data
+
 
 ## Setup Instructions
 
@@ -131,152 +128,9 @@ python app.py
 
 The API will be available at `http://localhost:5000/`.
 
-## API Documentation
+## API Endpoints
 
-### 1. Predict Waterlogging Depth and Risk
-
-**Endpoint**: `POST /model/predict/`
-
-**Request Body**:
-```json
-{
-    "station_code": "1",
-    "rainfall": 10.5,
-    "timestamp": "2023-05-01T12:30:00",
-    "weather": 2,  
-    "windspeed": 5.2  
-}
-```
-
-**Response**:
-```json
-{
-    "prediction": {
-        "waterlogging_depth": 0.25,
-        "risk_factor": {
-            "risk_score": 0.45,
-            "risk_level": "moderate",
-            "amplification_factor": 0.23,
-            "factors": {
-                "elevation": 0.3,
-                "impervious_cover": 0.8,
-                "drainage": 0.4,
-                "slope": 0.2,
-                "proximity_to_water": 0.5
-            }
-        }
-    },
-    "message": "Prediction successful",
-    "status": "success"
-}
-```
-
-### 2. Provide Feedback
-
-**Endpoint**: `POST /model/feedback`
-
-**Request Body**:
-```json
-{
-    "station_code": "1",
-    "rainfall": 10.5,
-    "timestamp": "2023-05-01T12:30:00",
-    "weather": 2,
-    "windspeed": 5.2,
-    "actual_waterdepth": 0.27
-}
-```
-
-**Response**:
-```json
-{
-    "message": "Feedback processed successfully",
-    "status": "success",
-    "details": {
-        "previous_prediction": 0.25,
-        "actual_value": 0.27,
-        "error": 0.02
-    }
-}
-```
-
-### 3. Get or Update Risk Weights
-
-**GET /model/weights**
-
-**Response**:
-```json
-{
-    "weights": {
-        "amplification_factor": 0.4,
-        "elevation": 0.2,
-        "impervious_cover": 0.1,
-        "drainage": 0.15,
-        "slope": 0.1,
-        "proximity_to_water": 0.05
-    },
-    "message": "Current weights retrieved successfully",
-    "status": "success"
-}
-```
-
-**POST /model/weights**
-
-**Request Body**:
-```json
-{
-    "weights": {
-        "amplification_factor": 0.5,
-        "elevation": 0.2,
-        "impervious_cover": 0.1,
-        "drainage": 0.1,
-        "slope": 0.05,
-        "proximity_to_water": 0.05
-    }
-}
-```
-
-**Response**: Same as GET response but with updated weights.
-
-### 4. Get or Update Station Data
-
-**GET /model/station-data?station_id=1**
-
-**Response**:
-```json
-{
-    "station_data": {
-        "amplification_factor": 0.23,
-        "elevation": 25.5,
-        "impervious_cover": 0.85,
-        "drainage_area": 200,
-        "drainage_volume": 10000,
-        "slope": 0.05,
-        "proximity_to_water": 300
-    },
-    "message": "Station data retrieved successfully",
-    "status": "success"
-}
-```
-
-**POST /model/station-data**
-
-**Request Body**:
-```json
-{
-    "station_id": "1",
-    "data": {
-        "elevation": 25.5,
-        "impervious_cover": 0.85,
-        "drainage_area": 200,
-        "drainage_volume": 10000,
-        "slope": 0.05,
-        "proximity_to_water": 300
-    }
-}
-```
-
-**Response**: Same as GET response but with updated station data.
+- [Find the api doc here](api-doc.md)
 
 ## Implementation Details
 
