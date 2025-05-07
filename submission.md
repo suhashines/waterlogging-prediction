@@ -20,7 +20,7 @@
 
 ### 📘 2. Technical Documentation
 
-📄 [Download PDF Report](<insert-pdf-report-link-here>)  
+📄 [Download PDF Report](https://drive.google.com/file/d/1Ohq4L30XVbM-2PeUYCshX62cOxWLcw6T/view?usp=drive_link)  
 
 **Contents:**
 - Problem Statement  
