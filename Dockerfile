@@ -1,11 +1,12 @@
-# Use Python 3.9 as base image
-FROM python:3.9-alpine
+FROM python:3.9-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install required build dependencies
-RUN apk add --no-cache build-base gcc g++ musl-dev python3-dev libffi-dev openssl-dev
+# Install minimal build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
 COPY requirements.txt .
